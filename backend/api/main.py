@@ -28,14 +28,24 @@ app = FastAPI(
     version="1.0.0"
 )
 
+# FIX #17: Restrict CORS to known origins. Wildcard "*" is fine for local dev
+# but exposes the API to any origin in production. Set CORS_ORIGINS env var
+# to a comma-separated list to override (e.g. "https://jarvis.yourdomain.com").
+_cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:5173").split(",")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+
+# ─── Job Status (FIX #18) ─────────────────────────────────────────
+# Background ingest tasks silently swallow errors — no way for frontend to know.
+# Simple in-memory store maps job_id -> status dict.
+import uuid as _uuid
+_ingest_jobs: dict = {}
 
 # ─── Models ───────────────────────────────────────────────────────
 
@@ -179,8 +189,19 @@ async def ingest_endpoint(request: IngestRequest, background_tasks: BackgroundTa
             stats = await ingest_directory(request.directory)
             logger.info(f"File ingestion: {stats}")
 
-    background_tasks.add_task(run_ingestion)
-    return {"status": "ingestion_started", "message": "Ingestion running in background"}
+    # FIX #18: track job status so frontend can poll /ingest/status/{job_id}
+    job_id = str(_uuid.uuid4())[:8]
+    _ingest_jobs[job_id] = {"status": "running", "error": None}
+
+    async def tracked_ingestion():
+        try:
+            await run_ingestion()
+            _ingest_jobs[job_id] = {"status": "done", "error": None}
+        except Exception as e:
+            _ingest_jobs[job_id] = {"status": "error", "error": str(e)}
+
+    background_tasks.add_task(tracked_ingestion)
+    return {"status": "ingestion_started", "message": "Ingestion running in background", "job_id": job_id}
 
 
 @app.get("/ingest/auto")
@@ -216,6 +237,15 @@ async def auto_ingest(background_tasks: BackgroundTasks):
 
     background_tasks.add_task(smart_ingest)
     return {"status": "auto_ingestion_started"}
+
+
+@app.get("/ingest/status/{job_id}")
+async def ingest_status(job_id: str):
+    """FIX #18: Poll ingestion job status."""
+    job = _ingest_jobs.get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail=f"Job not found: {job_id}")
+    return {"job_id": job_id, **job}
 
 
 @app.get("/memory/stats")

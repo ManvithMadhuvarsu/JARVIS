@@ -49,7 +49,7 @@ CHAT_SPLITTER = RecursiveCharacterTextSplitter(
 def parse_chatgpt_export(export_path: str) -> list[Document]:
     """Parse ChatGPT's conversations.json export."""
     docs = []
-    data = json.loads(Path(export_path).read_text())
+    data = json.loads(Path(export_path).read_text(encoding="utf-8", errors="replace"))  # FIX #11
 
     for conv in data:
         title = conv.get("title", "Untitled")
@@ -96,7 +96,7 @@ def parse_cursor_export(cursor_dir: str) -> list[Document]:
 
     for jf in json_files:
         try:
-            data = json.loads(jf.read_text())
+            data = json.loads(jf.read_text(encoding="utf-8", errors="replace"))  # FIX #11
             # Cursor format: list of {role, content} or nested
             if isinstance(data, list):
                 messages = []
@@ -129,7 +129,7 @@ def parse_cursor_export(cursor_dir: str) -> list[Document]:
 def parse_claude_export(export_path: str) -> list[Document]:
     """Parse Claude.ai conversation export (JSON)."""
     docs = []
-    data = json.loads(Path(export_path).read_text())
+    data = json.loads(Path(export_path).read_text(encoding="utf-8", errors="replace"))  # FIX #11
 
     conversations = data if isinstance(data, list) else [data]
 
@@ -173,7 +173,7 @@ def parse_gemini_export(export_dir: str) -> list[Document]:
 
     for json_file in gemini_path.rglob("*.json"):
         try:
-            data = json.loads(json_file.read_text())
+            data = json.loads(json_file.read_text(encoding="utf-8", errors="replace"))  # FIX #11
             if "conversations" in data:
                 for conv in data["conversations"]:
                     messages = []

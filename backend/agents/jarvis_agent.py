@@ -190,11 +190,23 @@ def search_web(query: str) -> str:
     """
     if not settings.enable_web_search:
         return "Web search is disabled. Set ENABLE_WEB_SEARCH=true in .env to enable."
-    try:
-        search = DuckDuckGoSearchRun()
-        return search.run(query)
-    except Exception as e:
-        return f"Web search failed: {e}"
+    # FIX #19: DuckDuckGoSearchRun frequently raises RatelimitException.
+    # Added 3-attempt retry with exponential backoff.
+    import time
+    last_err = ""
+    for attempt in range(3):
+        try:
+            result = DuckDuckGoSearchRun().run(query)
+            if result:
+                return result
+        except Exception as e:
+            last_err = str(e)
+            if attempt < 2:
+                time.sleep(2 ** attempt)
+    return (
+        f"Web search unavailable after 3 attempts (likely DuckDuckGo rate limit). "
+        f"Try using search_my_knowledge instead. Error: {last_err}"
+    )
 
 
 @tool
@@ -223,13 +235,37 @@ def remember_this(content: str, tags: str = "") -> str:
         }
     )
 
-    # Use synchronous qdrant upsert directly to avoid event loop conflict
+    # FIX #3: QdrantVectorStore only has aadd_documents() (async).
+    # store.add_documents() doesn't exist — raises AttributeError every call.
+    # This tool runs inside a running async event loop (LangGraph agent node),
+    # so asyncio.run() would also raise RuntimeError("event loop already running").
+    # Solution: use the raw synchronous qdrant-client upsert directly.
     try:
         from langchain_text_splitters import RecursiveCharacterTextSplitter
+        from langchain_ollama import OllamaEmbeddings
+        from qdrant_client import models as qdrant_models
+        import hashlib
+
         splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
         chunks = splitter.split_documents([doc])
-        store = vector_store.get_store("documents")
-        store.add_documents(chunks)  # synchronous add
+
+        # Embed synchronously via Ollama
+        embeddings_model = OllamaEmbeddings(model=settings.embedding_model)
+        texts = [c.page_content for c in chunks]
+        vectors = embeddings_model.embed_documents(texts)
+
+        # Upsert directly via raw qdrant client (synchronous)
+        points = []
+        for chunk, vector in zip(chunks, vectors):
+            point_id = hashlib.md5(
+                (chunk.metadata.get("source", "") + chunk.page_content).encode("utf-8")
+            ).hexdigest()
+            points.append(qdrant_models.PointStruct(
+                id=point_id,
+                vector=vector,
+                payload={"page_content": chunk.page_content, "metadata": chunk.metadata}
+            ))
+        vector_store.client.upsert(collection_name="documents", points=points)
         return f"✅ Remembered ({len(chunks)} chunk(s)): {content[:120]}..."
     except Exception as e:
         return f"Failed to save memory: {e}"

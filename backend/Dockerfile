@@ -9,6 +9,11 @@ RUN apt-get update && apt-get install -y \
     inotify-tools \
     && rm -rf /var/lib/apt/lists/*
 
+# FIX #15: Set PYTHONPATH in the image itself.
+# docker-compose sets it via `environment:`, but if the image is run directly
+# with `docker run`, the env block is absent and module imports break.
+ENV PYTHONPATH=/app
+
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 

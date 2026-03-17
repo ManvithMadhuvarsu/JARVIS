@@ -13,7 +13,8 @@ import argparse
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent / "backend"))
+# FIX #12: .resolve() makes path absolute regardless of cwd
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "backend"))
 
 from ingestion.engine import (
     ingest_directory, ingest_all_chat_exports,

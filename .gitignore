@@ -1,39 +1,70 @@
-# JARVIS Git Ignore
-
 # Environment and Keys
 .env
+.env.local
+.env.*.local
 *.key
 *.pem
+
+# Data folders (Large Files)
+data/
+data/claude/
+qdrant_data/
+temp_qdrant/
+ollama_models/
+*.sqlite
+*.lock
+*.zip
+*.pdf
 
 # Python
 __pycache__/
 *.py[cod]
 *$py.class
-venv/
+*.so
+.Python
+env/
 .venv/
-.env
+venv/
+ENV/
+env.bak/
+venv.bak/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
 
 # Node / Frontend
 node_modules/
 dist/
 .next/
+out/
 build/
 .cache
 .npm
 .eslintcache
-
-# Project Specific Data (Large Files)
-data/claude/
-qdrant_data/
-ollama_models/
-*.zip
-*.pdf
 
 # Logs
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+.pnpm-debug.log*
+
+# Docker
+.docker
 
 # OS / IDE
 .DS_Store

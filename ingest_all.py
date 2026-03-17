@@ -26,13 +26,19 @@ import ollama
 from qdrant_client import QdrantClient, models
 
 # ─── Configuration ────────────────────────────────────────────────────
-QDRANT_PATH = "D:/Projects/JARVIS/qdrant_data"   # Local persistent storage
-EMBEDDING_MODEL = "nomic-embed-text"               # Free local model via Ollama
-EMBEDDING_DIM = 768                                # nomic-embed-text dimension
+# FIX #4: All paths now use env vars with cross-platform defaults.
+# Override by setting env vars before running: QDRANT_PATH, CLAUDE_DATA_DIR, etc.
+import os as _os
+from pathlib import Path as _Path
+_root = _Path(__file__).resolve().parent  # project root
 
-CLAUDE_DATA_DIR = "D:/Projects/JARVIS/data/claude"
-PROJECTS_DIR = "D:/Projects"
-RESUME_PATH = "C:/Users/mscma/Dropbox/PC/Documents/Resume.pdf"
+QDRANT_PATH     = _os.getenv("QDRANT_PATH",     str(_root / "qdrant_data"))
+EMBEDDING_MODEL = _os.getenv("EMBEDDING_MODEL", "nomic-embed-text")
+EMBEDDING_DIM   = 768  # nomic-embed-text dimension
+
+CLAUDE_DATA_DIR = _os.getenv("CLAUDE_DATA_DIR", str(_root / "data" / "claude"))
+PROJECTS_DIR    = _os.getenv("PROJECTS_DIR",    str(_Path.home() / "Projects"))
+RESUME_PATH     = _os.getenv("RESUME_PATH",     str(_Path.home() / "Documents" / "Resume.pdf"))
 
 # Collections
 COLLECTIONS = {

@@ -70,8 +70,9 @@ def create_env():
 OPENAI_API_KEY={openai_key}
 LLM_PROVIDER={llm_choice}
 LLM_MODEL={"claude-sonnet-4-5" if llm_choice == "claude" else "gpt-4o"}
-EMBEDDING_PROVIDER=openai
-EMBEDDING_MODEL=text-embedding-3-small
+# FIX #10: was hardcoded to openai — system uses local Ollama embeddings
+EMBEDDING_PROVIDER=local
+EMBEDDING_MODEL=nomic-embed-text
 QDRANT_URL=http://localhost:6333
 REDIS_URL=redis://localhost:6379
 USER_HOME={HOME}

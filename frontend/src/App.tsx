@@ -30,7 +30,8 @@ interface Stats {
 }
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:8000";
-const WS_URL = API.replace("http", "ws");
+// FIX #7: replace("http","ws") breaks for https:// → "wshttps://". Use anchored regex.
+const WS_URL = API.replace(/^http/, "ws");
 
 // ── Helpers ─────────────────────────────────────────────────────────
 const uid = () => Math.random().toString(36).slice(2);
@@ -60,6 +61,10 @@ export default function Jarvis() {
   const [filePath, setFilePath] = useState("~");
   const [fileItems, setFileItems] = useState<any[]>([]);
   const [ingestStatus, setIngestStatus] = useState("");
+  // FIX #8: state for manual ingest path inputs (were uncontrolled and never sent)
+  const [ingestPaths, setIngestPaths] = useState({
+    chatgpt: "", cursor: "", claude: "", gemini: ""
+  });
 
   const wsRef = useRef<WebSocket | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -128,8 +133,37 @@ export default function Jarvis() {
 
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({ message: msg.content }));
+    } else {
+      // FIX #9: WebSocket not open (cold start / reconnecting) — fall back to SSE stream
+      (async () => {
+        try {
+          const res = await fetch(`${API}/chat/stream`, {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ message: msg.content, session_id: sessionId })
+          });
+          if (!res.body) throw new Error("No response body");
+          const reader = res.body.getReader();
+          const decoder = new TextDecoder();
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            const lines = decoder.decode(value).split("\n");
+            for (const line of lines) {
+              if (line.startsWith("data: ")) {
+                const chunk = line.slice(6);
+                if (chunk === "[DONE]") { setIsStreaming(false); setMessages(prev => { const last = prev[prev.length-1]; return last?.id === "streaming" ? [...prev.slice(0,-1), {...last, id: Math.random().toString(36).slice(2)}] : prev; }); break; }
+                if (chunk.startsWith("[ERROR]")) { setIsStreaming(false); break; }
+                if (chunk) setMessages(prev => { const last = prev[prev.length-1]; return last?.id === "streaming" ? [...prev.slice(0,-1), {...last, content: last.content + chunk}] : prev; });
+              }
+            }
+          }
+        } catch (e) {
+          setIsStreaming(false);
+          setMessages(prev => [...prev.slice(0,-1), { id: Math.random().toString(36).slice(2), role: "assistant", content: `❌ Connection error: ${e}. Please try again.`, timestamp: new Date() }]);
+        }
+      })();
     }
-  }, [input, isStreaming]);
+  }, [input, isStreaming, sessionId]);
 
   const handleKey = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
@@ -172,6 +206,32 @@ export default function Jarvis() {
       fetch(`${API}/health`).then(r => r.json()).then(setStats).catch(() => {});
       setIngestStatus("");
     }, 3000);
+  };
+
+  // FIX #8: manual ingest handler — POSTs typed paths to /ingest
+  const triggerManualIngest = async () => {
+    const hasAny = Object.values(ingestPaths).some(v => v.trim());
+    if (!hasAny) { setIngestStatus("Enter at least one path to ingest."); return; }
+    setIngestStatus("Ingesting...");
+    try {
+      const res = await fetch(`${API}/ingest`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chatgpt_export: ingestPaths.chatgpt || null,
+          cursor_dir: ingestPaths.cursor || null,
+          claude_export: ingestPaths.claude || null,
+          gemini_dir: ingestPaths.gemini || null,
+        })
+      });
+      const data = await res.json();
+      setIngestStatus(data.message || "Ingestion started in background");
+      setTimeout(() => {
+        fetch(`${API}/health`).then(r => r.json()).then(setStats).catch(() => {});
+        setIngestStatus("");
+      }, 4000);
+    } catch (e) {
+      setIngestStatus(`Error: ${e}`);
+    }
   };
 
   // ── Render ────────────────────────────────────────────────────────
@@ -479,28 +539,38 @@ export default function Jarvis() {
               </h3>
 
               <div className="space-y-3 mb-4">
-                {[
+                {/* FIX #8: inputs now controlled with value+onChange, values sent via triggerManualIngest */}
+              {([
                   { label: "🤖 ChatGPT Export", placeholder: "/path/to/conversations.json", key: "chatgpt" },
                   { label: "✏️ Cursor History", placeholder: "~/.cursor/logs", key: "cursor" },
                   { label: "🟠 Claude Export", placeholder: "/path/to/claude_export.json", key: "claude" },
                   { label: "♊ Gemini Takeout", placeholder: "/path/to/Takeout/Gemini", key: "gemini" },
-                ].map(({ label, placeholder }) => (
-                  <div key={placeholder} className="flex items-center gap-3">
+                ] as const).map(({ label, placeholder, key }) => (
+                  <div key={key} className="flex items-center gap-3">
                     <span className="text-xs w-36 text-gray-400 shrink-0">{label}</span>
                     <input
                       placeholder={placeholder}
+                      value={ingestPaths[key]}
+                      onChange={e => setIngestPaths(prev => ({ ...prev, [key]: e.target.value }))}
                       className="flex-1 bg-black/30 border border-gray-700 rounded px-3 py-2 text-xs font-mono text-gray-300 focus:outline-none focus:border-cyan-500/50"
                     />
                   </div>
                 ))}
               </div>
 
-              <div className="flex gap-3">
+              <div className="flex gap-3 flex-wrap">
                 <button
                   onClick={triggerAutoIngest}
                   className="flex-1 py-2.5 bg-cyan-600 hover:bg-cyan-500 rounded-lg text-sm font-medium transition-colors"
                 >
                   ⚡ Auto-Detect & Ingest
+                </button>
+                {/* FIX #8: wired to triggerManualIngest which POSTs typed paths */}
+                <button
+                  onClick={triggerManualIngest}
+                  className="flex-1 py-2.5 bg-blue-700 hover:bg-blue-600 rounded-lg text-sm font-medium transition-colors"
+                >
+                  📁 Ingest Paths Above
                 </button>
                 <button
                   onClick={() => setInput("What data do you currently have indexed?")}
