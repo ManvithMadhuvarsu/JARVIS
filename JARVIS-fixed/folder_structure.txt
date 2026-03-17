@@ -1,0 +1,29 @@
+JARVIS/ → .md: 2, .py: 2, .txt: 1, .yml: 1, [no_extension]: 1
+│   backend/ → .py: 1, .txt: 1, [no_extension]: 1
+│   │   __pycache__/ → .pyc: 1
+│   │   agents/ → .py: 2
+│   │       __pycache__/ → .pyc: 2
+│   │   api/ → .py: 2
+│   │       __pycache__/ → .pyc: 2
+│   │   ingestion/ → .py: 3
+│   │       __pycache__/ → .pyc: 2
+│       memory/ → .py: 2
+│           __pycache__/ → .pyc: 2
+│   data/ → (no files)
+│       claude/ → (no files)
+│       │   1/ → .json: 4
+│       │   2/ → .json: 3
+│       │   3/ → .json: 3
+│       │   4/ → .json: 3
+│       │   5/ → .json: 3
+│       │   6/ → .json: 3
+│           7/ → .json: 3
+│   frontend/ → .conf: 1, .html: 1, .js: 2, .json: 3, .ts: 1, [no_extension]: 1
+│       src/ → .css: 1, .tsx: 2
+│   qdrant_data/ → .json: 1, [no_extension]: 1
+│       collection/ → (no files)
+│       │   chat_history/ → .sqlite: 1, .sqlite-journal: 1
+│       │   code_files/ → .sqlite: 1
+│           documents/ → .sqlite: 1
+│   scripts/ → .py: 2
+    temp_qdrant/ → .json: 1, [no_extension]: 1

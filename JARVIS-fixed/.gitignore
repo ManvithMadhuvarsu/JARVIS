@@ -1,0 +1,40 @@
+# ── Secrets ────────────────────────────────────────────────────────
+.env
+*.key
+*.pem
+
+# ── Python ─────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+env/
+
+# ── Node ───────────────────────────────────────────────────────────
+node_modules/
+frontend/dist/
+frontend/.vite/
+*.local
+
+# ── Vector DB / data (FIX #14: never commit ingested data or db locks)
+qdrant_data/
+temp_qdrant/
+data/
+
+# ── OS / Editor ────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# ── Logs ───────────────────────────────────────────────────────────
+*.log
+logs/
