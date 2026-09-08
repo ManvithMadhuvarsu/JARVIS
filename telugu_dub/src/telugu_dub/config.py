@@ -19,6 +19,9 @@ class AsrCfg:
     diarize: bool = False
     beam_size: int = 5
     transcript: str | None = None          # for provider=srt
+    model_dir: str | None = None           # for provider=sherpa (ONNX model dir)
+    vad_model: str | None = None           # silero_vad.onnx, for provider=sherpa
+    num_threads: int = 4
     # merge ASR chunks into dubbing units
     max_segment_seconds: float = 12.0
     min_segment_seconds: float = 1.2

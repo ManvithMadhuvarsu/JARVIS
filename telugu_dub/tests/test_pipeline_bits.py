@@ -87,3 +87,51 @@ def test_config_overrides_and_manifest_roundtrip(tmp_path):
     path = tmp_path / "m.json"
     m.save(path)
     assert Manifest.load(path).segments[0].text_tgt == "ధ్యానం"
+
+
+def test_split_long_units_breaks_at_sentence_boundaries():
+    from telugu_dub.stages.asr import split_long_units
+    cfg = AsrCfg(max_segment_seconds=8.0)
+    units = [{"start": 0.0, "end": 16.0, "speaker": "S0",
+              "text": "One short bit. A considerably longer second sentence "
+                      "that carries most of the syllables in this span."}]
+    out = split_long_units(units, cfg)
+    assert len(out) == 2
+    assert out[0]["start"] == 0.0 and out[1]["end"] == 16.0
+    assert out[0]["end"] == out[1]["start"]          # no gap, no overlap
+    # time is allocated by syllable count, so the longer sentence gets more
+    assert (out[1]["end"] - out[1]["start"]) > (out[0]["end"] - out[0]["start"])
+
+
+def test_split_long_units_leaves_short_or_unsplittable_units_alone():
+    from telugu_dub.stages.asr import split_long_units
+    cfg = AsrCfg(max_segment_seconds=8.0)
+    short = [{"start": 0.0, "end": 5.0, "text": "A. B.", "speaker": "S0"}]
+    assert split_long_units(short, cfg) == short
+    one_sentence = [{"start": 0.0, "end": 14.0, "speaker": "S0",
+                     "text": "a single clause with no sentence boundary at all"}]
+    assert split_long_units(one_sentence, cfg) == one_sentence
+
+
+def test_file_translations_are_applied_and_gaps_reported(tmp_path):
+    import json as _json
+
+    import pytest as _pytest
+
+    from telugu_dub.config import ProsodyCfg, TranslateCfg
+    from telugu_dub.stages.translate import translate_segments
+
+    path = tmp_path / "te.json"
+    path.write_text(_json.dumps({"translations": {"0": "ధ్యానం", "1": "క్షేమం"}}),
+                    encoding="utf-8")
+    segs = [Segment(id=0, start=0, end=2, text_src="meditation"),
+            Segment(id=1, start=2, end=4, text_src="wellbeing")]
+    cfg = TranslateCfg(provider="file", model=str(path), glossary=None,
+                       length_control=False)
+    translate_segments(segs, cfg, ProsodyCfg())
+    assert [s.text_tgt for s in segs] == ["ధ్యానం", "క్షేమం"]
+    assert all("human-reviewed" in " ".join(s.notes) for s in segs)
+
+    segs.append(Segment(id=2, start=4, end=6, text_src="uncovered"))
+    with _pytest.raises(ValueError, match=r"\[2\]"):
+        translate_segments(segs, cfg, ProsodyCfg())

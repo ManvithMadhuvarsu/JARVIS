@@ -1,0 +1,67 @@
+# ============================================================================
+# FULLY OFFLINE PRESET — no GPU, no API key, no HuggingFace login, and after
+# the one-time model download, no network at all.
+#
+# Models come from GitHub release assets (not HuggingFace), which makes this
+# the preset that works on a locked-down or air-gapped machine:
+#
+#   mkdir -p models && cd models
+#   curl -LO https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-whisper-small.en.tar.bz2
+#   tar xjf sherpa-onnx-whisper-small.en.tar.bz2
+#   curl -LO https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/silero_vad.onnx
+#
+#   pip install sherpa-onnx espeakng-loader
+#   python -m telugu_dub run --audio talk.mp3 --config config/offline_sherpa.yaml
+#
+# The espeak voice is robotic — it is a preview voice, not a delivery voice.
+# Swap tts.provider to edge_tts (free, needs network) or sarvam/indicf5 when
+# you want something a listener will actually hear.
+# ============================================================================
+workdir: runs/offline
+mode: audio
+voice: preset
+
+asr:
+  provider: sherpa
+  model_dir: models/sherpa-onnx-whisper-small.en
+  vad_model: models/silero_vad.onnx
+  language: en
+  num_threads: 4
+  max_segment_seconds: 8.0      # long units drag the whole span out of sync
+  min_segment_seconds: 1.0
+  merge_gap_seconds: 0.4
+
+translate:
+  provider: google_free         # or `file` for reviewed text, `llm` for quality
+  length_control: true
+  glossary: config/glossary_te.yaml
+
+tts:
+  provider: espeak
+  voice: te
+  sample_rate: 24000
+  speaking_rate: 1.0
+
+prosody:
+  target_syllables_per_second: 6.5   # measured for espeak at 195 wpm
+
+align:
+  max_speedup: 1.15
+  max_slowdown: 0.90
+  hard_max_speedup: 1.30
+  borrow_gap_fraction: 0.80
+  max_shift: 0.30
+
+mix:
+  keep_background: true
+  separator: ducking
+  background_gain_db: -18.0
+  loudness_target_lufs: -16.0
+
+lipsync:
+  provider: none
+
+output:
+  container: mp3
+  write_srt: true
+  audio_bitrate: 192k

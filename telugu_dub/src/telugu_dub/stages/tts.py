@@ -13,6 +13,9 @@ Providers
   sarvam     : Sarvam Bulbul (hosted, Indian-language TTS, streaming).
   elevenlabs : multilingual v2/v3 + instant voice cloning. Best prosody control,
                per-character pricing, cloud only.
+  espeak     : libespeak-ng via ctypes. Robotic formant synthesis, but real
+               Telugu, fully offline, no GPU and no model download — the only
+               provider that always works. Use it as a preview voice.
   mock       : procedural "speech-shaped" audio whose *duration* follows the
                Telugu prosody model. Not intelligible — it exists so the timing,
                mixing and muxing stages can be exercised offline.
@@ -54,6 +57,8 @@ def _get_engine(cfg: TtsCfg, prosody: ProsodyCfg):
         return _edge_engine(cfg)
     if cfg.provider == "gtts":
         return _gtts_engine(cfg)
+    if cfg.provider == "espeak":
+        return _espeak_engine(cfg, prosody)
     if cfg.provider == "indicf5":
         return _indicf5_engine(cfg)
     if cfg.provider == "sarvam":
@@ -196,6 +201,28 @@ def _elevenlabs_engine(cfg: TtsCfg):
         r.raise_for_status()
         tmp = dst.with_suffix(".mp3")
         tmp.write_bytes(r.content)
+        to_pcm16(tmp, dst, cfg.sample_rate)
+        tmp.unlink(missing_ok=True)
+
+    return run
+
+
+# ------------------------------------------------------------------- espeak
+def _espeak_engine(cfg: TtsCfg, prosody: ProsodyCfg):
+    """Offline Telugu through libespeak-ng.
+
+    espeak's rate is words-per-minute, which does not map onto Telugu syllable
+    rate; 195 wpm measures at roughly 6.5 syllables/second on the Telugu voice,
+    matching the pipeline default. `speaking_rate` scales that.
+    """
+    from ..espeak import DEFAULT_RATE_WPM, Espeak
+
+    engine = Espeak(voice=cfg.voice or "te",
+                    rate_wpm=int(DEFAULT_RATE_WPM * cfg.speaking_rate))
+
+    def run(seg: Segment, dst: Path) -> None:
+        tmp = dst.with_suffix(".raw.wav")
+        engine.to_wav(seg.text_tgt, tmp)
         to_pcm16(tmp, dst, cfg.sample_rate)
         tmp.unlink(missing_ok=True)
 

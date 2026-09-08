@@ -19,6 +19,9 @@ Providers
   indictrans2  : AI4Bharat's NMT (en-indic 1B). Offline, free, strong literal
                  quality, but no length control and no discourse context — we
                  add a compression retry loop around it.
+  file         : translations supplied by a human, keyed by segment id. This is
+                 what you use after a reviewer has corrected the machine output
+                 — the corrections survive re-runs instead of being regenerated.
   mock         : offline phrase table, for pipeline tests without network.
 """
 from __future__ import annotations
@@ -71,6 +74,8 @@ def translate_segments(segments: list[Segment], cfg: TranslateCfg,
         _translate_google_free(segments, cfg, glossary, prosody)
     elif cfg.provider == "argos":
         _translate_argos(segments, cfg, glossary)
+    elif cfg.provider == "file":
+        _translate_from_file(segments, cfg, glossary)
     elif cfg.provider == "mock":
         _translate_mock(segments, cfg, glossary)
     else:
@@ -323,6 +328,33 @@ def _translate_argos(segments: list[Segment], cfg: TranslateCfg,
     for seg in segments:
         seg.text_tgt = _apply_glossary(
             argostranslate.translate.translate(seg.text_src, "en", "te"), glossary)
+
+
+def _translate_from_file(segments: list[Segment], cfg: TranslateCfg,
+                         glossary: dict[str, str]) -> None:
+    """Load reviewed Telugu from a JSON/YAML file: {"0": "...", "1": "..."}.
+
+    Set translate.model to the file path. Segments the file does not cover keep
+    whatever text they already have, so a partial review is usable.
+    """
+    path = Path(cfg.model)
+    if not path.exists():
+        raise ValueError(f"translate.provider=file needs translate.model to be "
+                         f"a path to the translations; {path} not found")
+    raw = path.read_text(encoding="utf-8")
+    data = (json.loads(raw) if path.suffix == ".json"
+            else yaml.safe_load(raw)) or {}
+    table = {str(k): v for k, v in (data.get("translations", data)).items()}
+    missing = []
+    for seg in segments:
+        text = table.get(str(seg.id))
+        if text:
+            seg.text_tgt = _apply_glossary(str(text).strip(), glossary)
+            seg.notes.append("human-reviewed translation")
+        elif not seg.text_tgt:
+            missing.append(seg.id)
+    if missing:
+        raise ValueError(f"no translation supplied for segments {missing}")
 
 
 def _apply_glossary(text: str, glossary: dict[str, str]) -> str:
