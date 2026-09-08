@@ -30,7 +30,7 @@ from ..media import ffmpeg
 
 def run_lipsync(video: str, audio: str, out_video: str, cfg: LipsyncCfg) -> dict:
     started = time.time()
-    provider = cfg.provider
+    provider = cfg.provider or "none"
     if provider == "none":
         _mux_only(video, audio, out_video)
     elif provider == "latentsync":

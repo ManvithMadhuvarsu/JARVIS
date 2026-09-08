@@ -99,6 +99,7 @@ class LipsyncCfg:
 
 @dataclass
 class OutputCfg:
+    container: str = "mp4"                 # mp4 for video modes, mp3 for audio
     burn_subtitles: bool = False
     write_srt: bool = True
     crf: int = 18
@@ -111,6 +112,8 @@ class Config:
     workdir: str = "runs/default"
     source_lang: str = "en"
     target_lang: str = "te"
+    mode: str = "video"                    # audio | video | video-lipsync
+    voice: str = "preset"                  # preset | clone
     asr: AsrCfg = field(default_factory=AsrCfg)
     translate: TranslateCfg = field(default_factory=TranslateCfg)
     tts: TtsCfg = field(default_factory=TtsCfg)

@@ -1,7 +1,10 @@
-# Runbook — running this on a real video
+# Runbook — GPU setup for lip-sync and cloned voices
 
-The POC in the repo root runs offline with stub models. This document is how you
-run it for real: a GPU box, real weights, and an actual YouTube clip.
+This is the heavyweight path: a GPU box, real weights, lip-sync.
+
+If you only want a Telugu dub over the original picture — use cases 1-4, no GPU,
+no API keys — you do not need any of this. Go to
+[QUICKSTART.md](QUICKSTART.md) instead; it takes about ten minutes.
 
 ---
 

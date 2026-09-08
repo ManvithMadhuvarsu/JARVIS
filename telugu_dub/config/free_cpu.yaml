@@ -1,0 +1,76 @@
+# ============================================================================
+# FIRST RUN PRESET — no GPU, no API keys, no HuggingFace login.
+#
+#   pip install -r requirements.txt -r requirements-free.txt
+#   python -m telugu_dub run --video myclip.mp4 --config config/free_cpu.yaml \
+#          --mode video --voice preset
+#
+# Everything here is free and keyless. It needs an internet connection at run
+# time (Whisper downloads its model once; edge-tts and Google translate are
+# network services). Quality is "good demo", not "good enough to publish" —
+# see docs/USE_CASES.md for what to upgrade first.
+# ============================================================================
+workdir: runs/free
+source_lang: en
+target_lang: te
+mode: video           # audio | video | video-lipsync
+voice: preset         # preset | clone
+
+asr:
+  provider: faster_whisper
+  # "small" transcribes ~13 min of audio in ~1 min on a modern laptop CPU.
+  # Use "medium" if you have the patience, "large-v3" only with a GPU.
+  model: small
+  device: cpu
+  compute_type: int8
+  language: en
+  vad: true
+  max_segment_seconds: 12.0
+  min_segment_seconds: 1.2
+  merge_gap_seconds: 0.35
+
+translate:
+  provider: google_free      # keyless; upgrade to `llm` for real quality
+  length_control: true       # strips English filler and retries overlong lines
+  length_tolerance: 0.12
+  glossary: config/glossary_te.yaml
+
+tts:
+  provider: edge_tts         # free Microsoft neural Telugu voice
+  voice: te-IN-MohanNeural   # male; te-IN-ShrutiNeural is female
+  sample_rate: 24000
+  speaking_rate: 1.0
+
+prosody:
+  # Calibrate for the voice you choose:
+  #   python scripts/calibrate_rate.py --config config/free_cpu.yaml --write
+  target_syllables_per_second: 6.5
+  pause_per_comma: 0.18
+  pause_per_sentence: 0.34
+  headroom: 0.95
+
+align:
+  max_speedup: 1.15
+  max_slowdown: 0.90
+  hard_max_speedup: 1.30
+  borrow_gap_fraction: 0.80
+  max_shift: 0.30
+  keep_start_anchor: true
+
+mix:
+  keep_background: true
+  separator: ducking         # no Demucs needed; ducks the original under the dub
+  background_gain_db: -8.0
+  dub_gain_db: 0.0
+  loudness_target_lufs: -16.0
+
+lipsync:
+  provider: none             # --mode video-lipsync switches this on
+
+output:
+  container: mp4
+  burn_subtitles: false      # needs libass + fonts-noto-telugu
+  write_srt: true
+  crf: 20
+  preset: veryfast
+  audio_bitrate: 192k

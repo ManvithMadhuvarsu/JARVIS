@@ -1,6 +1,12 @@
 """Stage 4 — Telugu speech synthesis, one wav per segment.
 
 Providers
+  edge_tts   : Microsoft Edge's neural voices. Free, no API key, no GPU, real
+               Telugu (te-IN-MohanNeural male / te-IN-ShrutiNeural female).
+               This is the default for the `preset` voice — it is what makes a
+               first run possible on a laptop with nothing installed.
+  gtts       : Google Translate TTS. Also free and keyless, lower quality, but
+               a useful fallback when edge-tts is blocked on your network.
   indicf5    : AI4Bharat IndicF5 (open weights, 11 Indic languages incl. Telugu).
                Zero-shot voice cloning from a reference clip + its transcript,
                so the dub can carry the speaker's own timbre. 24 kHz output.
@@ -44,6 +50,10 @@ def synthesize(segments: list[Segment], cfg: TtsCfg, outdir: str | Path,
 
 
 def _get_engine(cfg: TtsCfg, prosody: ProsodyCfg):
+    if cfg.provider == "edge_tts":
+        return _edge_engine(cfg)
+    if cfg.provider == "gtts":
+        return _gtts_engine(cfg)
     if cfg.provider == "indicf5":
         return _indicf5_engine(cfg)
     if cfg.provider == "sarvam":
@@ -53,6 +63,68 @@ def _get_engine(cfg: TtsCfg, prosody: ProsodyCfg):
     if cfg.provider == "mock":
         return _mock_engine(cfg, prosody)
     raise ValueError(f"unknown tts provider: {cfg.provider}")
+
+
+# ----------------------------------------------------------------- edge-tts
+TELUGU_EDGE_VOICES = ("te-IN-MohanNeural", "te-IN-ShrutiNeural")
+
+
+def list_edge_voices(locale_prefix: str = "te") -> list[dict]:
+    """Ask Microsoft which voices exist. Handy when a voice name is rejected."""
+    import asyncio
+
+    import edge_tts
+
+    voices = asyncio.run(edge_tts.list_voices())
+    return [{"name": v["ShortName"], "gender": v["Gender"], "locale": v["Locale"]}
+            for v in voices if v["Locale"].lower().startswith(locale_prefix)]
+
+
+def _edge_engine(cfg: TtsCfg):
+    """Free neural Telugu TTS. Needs network, but no key and no GPU.
+
+    edge-tts takes a rate as a percentage rather than a multiplier; we pass the
+    configured speaking_rate through so a whole run can be nudged faster or
+    slower without touching the aligner.
+    """
+    import asyncio
+
+    import edge_tts
+
+    voice = cfg.voice or TELUGU_EDGE_VOICES[0]
+    pct = int(round((cfg.speaking_rate - 1.0) * 100))
+    rate = f"{pct:+d}%"
+
+    def run(seg: Segment, dst: Path) -> None:
+        tmp = dst.with_suffix(".mp3")
+
+        async def synth() -> None:
+            communicate = edge_tts.Communicate(seg.text_tgt, voice, rate=rate)
+            await communicate.save(str(tmp))
+
+        asyncio.run(synth())
+        if not tmp.exists() or tmp.stat().st_size == 0:
+            raise RuntimeError(
+                f"edge-tts returned no audio for segment {seg.id}. "
+                f"Check the voice name (see `telugu-dub voices`) and that "
+                f"outbound HTTPS to Microsoft is not blocked.")
+        to_pcm16(tmp, dst, cfg.sample_rate)
+        tmp.unlink(missing_ok=True)
+
+    return run
+
+
+# --------------------------------------------------------------------- gTTS
+def _gtts_engine(cfg: TtsCfg):
+    from gtts import gTTS
+
+    def run(seg: Segment, dst: Path) -> None:
+        tmp = dst.with_suffix(".mp3")
+        gTTS(text=seg.text_tgt, lang="te", slow=False).save(str(tmp))
+        to_pcm16(tmp, dst, cfg.sample_rate)
+        tmp.unlink(missing_ok=True)
+
+    return run
 
 
 # ------------------------------------------------------------------ IndicF5

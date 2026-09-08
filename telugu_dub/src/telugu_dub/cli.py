@@ -6,7 +6,9 @@ import json
 import sys
 from pathlib import Path
 
+from . import modes
 from .config import Config
+from .doctor import blocking, format_checks, run_checks
 from .pipeline import STAGES, Pipeline
 from .schema import Manifest
 
@@ -22,6 +24,16 @@ def build_parser() -> argparse.ArgumentParser:
     src.add_argument("--url", help="YouTube (or any yt-dlp) URL")
     src.add_argument("--video", help="local video file")
     run.add_argument("--config", default="config/default.yaml")
+    run.add_argument("--mode", choices=modes.MODES,
+                     help="audio: Telugu audio track only | video: original "
+                          "picture + Telugu dub | video-lipsync: also "
+                          "regenerate the mouth (needs a GPU)")
+    run.add_argument("--voice", choices=modes.VOICES,
+                     help="preset: stock Telugu voice (no consent needed) | "
+                          "clone: the speaker's own voice (needs consent + a "
+                          "reference recording)")
+    run.add_argument("--skip-checks", action="store_true",
+                     help="run even if the preflight finds blockers")
     run.add_argument("--workdir", help="override config workdir")
     run.add_argument("--clip", help="excerpt as START:END seconds, e.g. 30:60")
     run.add_argument("--until", choices=STAGES, default="mux")
@@ -34,6 +46,16 @@ def build_parser() -> argparse.ArgumentParser:
     rep = sub.add_parser("report", help="print the report for a finished run")
     rep.add_argument("workdir")
 
+    doc = sub.add_parser("doctor", help="check this machine can run a mode")
+    doc.add_argument("--config", default="config/default.yaml")
+    doc.add_argument("--mode", choices=modes.MODES, default="video")
+    doc.add_argument("--voice", choices=modes.VOICES, default="preset")
+    doc.add_argument("--set", nargs="*", default=[], metavar="a.b=c")
+
+    voi = sub.add_parser("voices", help="list free Telugu edge-tts voices")
+    voi.add_argument("--locale", default="te")
+
+    mod = sub.add_parser("modes", help="explain the use-case matrix")
     sub.add_parser("stages", help="list pipeline stages")
     return p
 
@@ -54,8 +76,10 @@ def _coerce(value: str):
     low = value.lower()
     if low in ("true", "false"):
         return low == "true"
-    if low in ("none", "null"):
+    if low == "null":
         return None
+    # NB: "none" is NOT coerced to None — it is a real provider name in this
+    # schema (lipsync.provider: none, mix.separator: none).
     try:
         return int(value)
     except ValueError:
@@ -73,6 +97,37 @@ def main(argv: list[str] | None = None) -> int:
         print("\n".join(STAGES))
         return 0
 
+    if args.cmd == "modes":
+        for name, spec in modes.MODE_SPECS.items():
+            print(f"--mode {name}")
+            print(f"    {spec.summary}")
+            print(f"    stages: {' -> '.join(spec.stages)}")
+            print(f"    output: .{spec.container}\n")
+        for name, preset in modes.VOICE_PRESETS.items():
+            print(f"--voice {name:8s} default TTS: {preset['provider']}")
+        return 0
+
+    if args.cmd == "voices":
+        from .stages.tts import list_edge_voices
+        try:
+            found = list_edge_voices(args.locale)
+        except Exception as exc:
+            print(f"could not reach the edge-tts voice list: {exc}")
+            print("Known Telugu voices: te-IN-MohanNeural (male), "
+                  "te-IN-ShrutiNeural (female)")
+            return 1
+        for v in found:
+            print(f"{v['name']:24s} {v['gender']:7s} {v['locale']}")
+        return 0
+
+    if args.cmd == "doctor":
+        cfg = Config.load(args.config if Path(args.config).exists() else None)
+        cfg = modes.apply(cfg, args.mode, args.voice)
+        cfg = apply_overrides(cfg, args.set)
+        checks = run_checks(cfg)
+        print(format_checks(checks, cfg))
+        return 1 if blocking(checks) else 0
+
     if args.cmd == "report":
         m = Manifest.load(Path(args.workdir) / "manifest.json")
         print(json.dumps(m.stats, indent=2, ensure_ascii=False))
@@ -84,7 +139,15 @@ def main(argv: list[str] | None = None) -> int:
     if args.transcript:
         cfg.asr.provider = "srt"
         cfg.asr.transcript = args.transcript
+    cfg = modes.apply(cfg, args.mode, args.voice)
     cfg = apply_overrides(cfg, args.set)
+
+    checks = run_checks(cfg)
+    if (problems := blocking(checks)):
+        print(format_checks(checks, cfg))
+        if not args.skip_checks:
+            print("\nFix the blockers above, or pass --skip-checks to try anyway.")
+            return 1
 
     clip = None
     if args.clip:

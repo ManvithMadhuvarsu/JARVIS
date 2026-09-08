@@ -12,6 +12,7 @@ from . import qc as qc_mod
 from .align import fit_segments, sync_report
 from .config import Config
 from .media import duration_of
+from .modes import MODE_SPECS, describe
 from .schema import Manifest
 from .stages import asr, ingest, lipsync, mux, render, translate, tts
 
@@ -56,9 +57,13 @@ class Pipeline:
         for stage in force or []:
             if stage in self.manifest.stages_done:
                 self.manifest.stages_done.remove(stage)
-        stop = STAGES.index(until)
 
-        for stage in STAGES[:stop + 1]:
+        self.log(describe(self.cfg))
+        wanted = MODE_SPECS[self.cfg.mode].stages
+        stop = STAGES.index(until)
+        plan = [s for s in STAGES[:stop + 1] if s in wanted]
+
+        for stage in plan:
             if self._done(stage):
                 self.log(f"{stage} cached, skipping")
                 continue
@@ -173,6 +178,16 @@ class Pipeline:
             srt_path = mux.write_subtitles(self.manifest.segments,
                                            self.work / "dub_te.srt")
             self.manifest.artifacts["subtitles"] = srt_path
+
+        if self.cfg.mode == "audio":
+            final = str(self.work / f"final_te.{self.cfg.output.container}")
+            mux.export_audio(self.manifest.artifacts["dub_audio"], final,
+                             self.cfg.output)
+            self.manifest.artifacts["final"] = final
+            self.manifest.stats["final_duration"] = round(duration_of(final), 2)
+            self.log(f"final: {final}")
+            return
+
         final = str(self.work / "final_te.mp4")
         video = self.manifest.artifacts.get("lipsync_video") or \
             self.manifest.artifacts["source_video"]

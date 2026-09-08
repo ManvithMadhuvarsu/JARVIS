@@ -3,6 +3,12 @@
 Scope: take an English talk (the working example is a Sadhguru discourse on
 YouTube) and produce a Telugu version where the voice *and* the mouth match.
 
+Not every deliverable needs all of that. The six shipping configurations —
+audio-only / video / video-with-lip-sync, each with a stock or a cloned voice —
+are laid out in [USE_CASES.md](USE_CASES.md), and the fastest way onto your own
+clip is [QUICKSTART.md](QUICKSTART.md). This document is the *why* behind those
+choices.
+
 ---
 
 ## 1. The thing people get wrong

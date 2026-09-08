@@ -8,6 +8,11 @@ Why not just translate?
     to fit, and re-ask for a shorter rendering when the first one overshoots.
 
 Providers
+  google_free  : deep-translator's Google backend. Free, no API key, decent
+                 en->te quality. No length control and no discourse context, so
+                 we compensate with source-side compression (see
+                 `shorten_source`).
+                 This is the default for a first run — nothing to sign up for.
   llm          : an instruction-following model (Claude by default). Best for
                  discourse: it keeps register, handles Sanskrit/spiritual terms,
                  and can obey a length budget. Needs ANTHROPIC_API_KEY.
@@ -61,7 +66,11 @@ def translate_segments(segments: list[Segment], cfg: TranslateCfg,
     if cfg.provider == "llm":
         _translate_llm(segments, cfg, glossary, prosody)
     elif cfg.provider == "indictrans2":
-        _translate_indictrans2(segments, cfg, glossary)
+        _translate_indictrans2(segments, cfg, glossary, prosody)
+    elif cfg.provider == "google_free":
+        _translate_google_free(segments, cfg, glossary, prosody)
+    elif cfg.provider == "argos":
+        _translate_argos(segments, cfg, glossary)
     elif cfg.provider == "mock":
         _translate_mock(segments, cfg, glossary)
     else:
@@ -89,6 +98,59 @@ def length_report(segments: list[Segment], cfg: TranslateCfg,
             "rate_used": prosody.target_syllables_per_second,
             "mean_ratio": round(sum(r["ratio"] for r in rows) / len(rows), 3)
             if rows else 0.0}
+
+
+# ------------------------------------------------- length control for plain MT
+# Spoken English is full of material that carries no meaning into Telugu.
+# Removing it from the SOURCE before translating is the only length lever a
+# plain MT engine gives you — and it is a surprisingly strong one, because
+# these fillers are frequent in unscripted discourse.
+FILLERS = [
+    r"\byou know\b", r"\bi mean\b", r"\byou see\b", r"\bsee\b(?=,)",
+    r"\bso to say\b", r"\bas it were\b", r"\bkind of\b", r"\bsort of\b",
+    r"\bbasically\b", r"\bactually\b", r"\breally\b", r"\bjust\b",
+    r"\bof course\b", r"\bin fact\b", r"\bright\?", r"\bokay\b",
+    r"^\s*(so|and|but|now|well)\b[,]?\s*",
+]
+
+
+def shorten_source(text: str) -> str:
+    """Strip discourse filler from English before translating it."""
+    out = text
+    for pattern in FILLERS:
+        out = re.sub(pattern, " ", out, flags=re.I)
+    out = re.sub(r"\s+", " ", out)
+    out = re.sub(r"\s+([,.;:?!])", r"\1", out)
+    out = re.sub(r"^[,;:\s]+", "", out)
+    out = re.sub(r"[,;:]\s*$", ".", out)          # don't leave a dangling comma
+    return out.strip() or text.strip()
+
+
+def _fit_pass(segments: list[Segment], translate_one, cfg: TranslateCfg,
+              prosody: ProsodyCfg, glossary: dict[str, str]) -> int:
+    """Re-translate overlong lines from a filler-stripped source.
+
+    Keeps the retry only if it is genuinely shorter, so a translator that
+    ignores the change cannot make things worse.
+    """
+    if not cfg.length_control:
+        return 0
+    fixed = 0
+    rate = prosody.target_syllables_per_second
+    for seg in segments:
+        budget = seg.source_duration * (1 + cfg.length_tolerance)
+        if estimate_speech_duration(seg.text_tgt, rate) <= budget:
+            continue
+        stripped = shorten_source(seg.text_src)
+        if stripped == seg.text_src.strip():
+            seg.notes.append("over budget; no filler to strip")
+            continue
+        candidate = _apply_glossary(translate_one(stripped) or "", glossary)
+        if candidate and count_syllables(candidate) < count_syllables(seg.text_tgt):
+            seg.text_tgt = candidate
+            seg.notes.append("shortened via source-side filler removal")
+            fixed += 1
+    return fixed
 
 
 # ----------------------------------------------------------------- providers
@@ -165,7 +227,8 @@ def _translate_llm(segments: list[Segment], cfg: TranslateCfg,
 
 
 def _translate_indictrans2(segments: list[Segment], cfg: TranslateCfg,
-                           glossary: dict[str, str]) -> None:
+                           glossary: dict[str, str],
+                           prosody: ProsodyCfg | None = None) -> None:
     import torch
     from IndicTransToolkit.processor import IndicProcessor
     from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
@@ -187,6 +250,79 @@ def _translate_indictrans2(segments: list[Segment], cfg: TranslateCfg,
         decoded = tok.batch_decode(gen, skip_special_tokens=True)
         for seg, out in zip(batch, proc.postprocess_batch(decoded, lang="tel_Telu")):
             seg.text_tgt = _apply_glossary(out, glossary)
+
+    def translate_one(text: str) -> str:
+        prepared = proc.preprocess_batch([text], src_lang="eng_Latn",
+                                         tgt_lang="tel_Telu")
+        enc = tok(prepared, truncation=True, padding="longest",
+                  return_tensors="pt").to(device)
+        with torch.inference_mode():
+            gen = model.generate(**enc, num_beams=5, max_length=256)
+        decoded = tok.batch_decode(gen, skip_special_tokens=True)
+        return proc.postprocess_batch(decoded, lang="tel_Telu")[0]
+
+    _fit_pass(segments, translate_one, cfg, prosody or ProsodyCfg(), glossary)
+
+
+def _translate_google_free(segments: list[Segment], cfg: TranslateCfg,
+                           glossary: dict[str, str],
+                           prosody: ProsodyCfg | None = None) -> None:
+    """Keyless Google translation, one line at a time with a retry.
+
+    Free endpoints rate-limit; a short backoff is the difference between a run
+    that finishes and one that dies at line 40 of 200.
+    """
+    import time
+
+    from deep_translator import GoogleTranslator
+
+    prosody = prosody or ProsodyCfg()
+    translator = GoogleTranslator(source="en", target="te")
+    for seg in segments:
+        text = seg.text_src.strip()
+        if not text:
+            continue
+        for attempt in range(4):
+            try:
+                out = translator.translate(text)
+                break
+            except Exception as exc:                  # rate limit or transient
+                if attempt == 3:
+                    raise RuntimeError(
+                        f"google_free failed on segment {seg.id}: {exc}") from exc
+                time.sleep(2 ** attempt)
+        seg.text_tgt = _apply_glossary(out or "", glossary)
+        time.sleep(0.15)                              # be polite to a free API
+
+    def translate_one(text: str) -> str:
+        time.sleep(0.15)
+        return translator.translate(text)
+
+    _fit_pass(segments, translate_one, cfg, prosody, glossary)
+
+
+def _translate_argos(segments: list[Segment], cfg: TranslateCfg,
+                     glossary: dict[str, str]) -> None:
+    """Fully offline translation via Argos Translate, when there is no network.
+
+    Quality is below Google/IndicTrans2/LLM, and en->te is not always available
+    as a direct package (it may pivot through English-adjacent languages), so
+    treat this as a last resort.
+    """
+    import argostranslate.package
+    import argostranslate.translate
+
+    argostranslate.package.update_package_index()
+    available = argostranslate.package.get_available_packages()
+    match = next((p for p in available
+                  if p.from_code == "en" and p.to_code == "te"), None)
+    if match is None:
+        raise RuntimeError("Argos has no en->te package installed; "
+                           "use translate.provider: google_free or llm")
+    argostranslate.package.install_from_path(match.download())
+    for seg in segments:
+        seg.text_tgt = _apply_glossary(
+            argostranslate.translate.translate(seg.text_src, "en", "te"), glossary)
 
 
 def _apply_glossary(text: str, glossary: dict[str, str]) -> str:

@@ -21,6 +21,16 @@ def write_subtitles(segments: list[Segment], path: str | Path,
     return srt_io.write_srt(cues, path)
 
 
+def export_audio(audio: str, out_path: str, cfg: OutputCfg) -> str:
+    """Audio-only deliverable (mode=audio): mp3 by default, wav if asked."""
+    if out_path.endswith(".wav"):
+        ffmpeg(["-i", audio, "-c:a", "pcm_s16le", out_path])
+    else:
+        ffmpeg(["-i", audio, "-c:a", "libmp3lame", "-b:a", cfg.audio_bitrate,
+                out_path])
+    return out_path
+
+
 def finalize(video: str, audio: str, out_path: str, cfg: OutputCfg,
              subtitles: str | None = None) -> str:
     args = ["-i", video, "-i", audio]

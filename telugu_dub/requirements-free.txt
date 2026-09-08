@@ -1,0 +1,7 @@
+# The free, keyless, CPU-only path (config/free_cpu.yaml).
+# Nothing here needs a GPU, an API key, or a HuggingFace login.
+
+faster-whisper>=1.0        # ASR on CPU with int8 quantisation
+deep-translator>=1.11      # keyless Google en->te translation
+edge-tts>=6.1              # free Microsoft neural Telugu voices
+gtts>=2.5                  # fallback TTS if edge-tts is blocked on your network
