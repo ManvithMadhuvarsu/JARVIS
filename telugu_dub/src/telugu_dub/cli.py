@@ -23,6 +23,7 @@ def build_parser() -> argparse.ArgumentParser:
     src = run.add_mutually_exclusive_group(required=True)
     src.add_argument("--url", help="YouTube (or any yt-dlp) URL")
     src.add_argument("--video", help="local video file")
+    src.add_argument("--audio", help="local audio file (implies --mode audio)")
     run.add_argument("--config", default="config/default.yaml")
     run.add_argument("--mode", choices=modes.MODES,
                      help="audio: Telugu audio track only | video: original "
@@ -139,6 +140,8 @@ def main(argv: list[str] | None = None) -> int:
     if args.transcript:
         cfg.asr.provider = "srt"
         cfg.asr.transcript = args.transcript
+    if args.audio and not args.mode:
+        args.mode = "audio"          # an audio source cannot produce video
     cfg = modes.apply(cfg, args.mode, args.voice)
     cfg = apply_overrides(cfg, args.set)
 
@@ -155,7 +158,7 @@ def main(argv: list[str] | None = None) -> int:
         clip = (float(start), float(end))
 
     pipe = Pipeline(cfg)
-    pipe.run(source=args.video or "", url=args.url, clip=clip,
+    pipe.run(source=args.video or args.audio or "", url=args.url, clip=clip,
              until=args.until, force=args.force)
     print(Path(cfg.workdir, "report.md").read_text(encoding="utf-8"))
     return 0

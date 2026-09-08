@@ -85,7 +85,15 @@ class Pipeline:
         self.manifest.video = info
         self.manifest.artifacts["source_video"] = info.path
         self.manifest.artifacts["source_audio"] = audio
-        self.log(f"{info.duration:.1f}s  {info.width}x{info.height} @ {info.fps}fps")
+        if not info.has_video:
+            if self.cfg.mode != "audio":
+                raise ValueError(
+                    f"{source} has no video stream, but mode={self.cfg.mode}. "
+                    f"Use --mode audio.")
+            self.log(f"{info.duration:.1f}s of audio (no video stream)")
+        else:
+            self.log(f"{info.duration:.1f}s  {info.width}x{info.height} "
+                     f"@ {info.fps}fps")
 
     def _stage_asr(self, **_) -> None:
         chunks = asr.transcribe(self.manifest.artifacts["source_audio"], self.cfg.asr)
