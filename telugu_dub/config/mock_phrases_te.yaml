@@ -1,0 +1,15 @@
+# Offline phrase table for the POC demo only (config/poc_offline.yaml).
+# Real runs use translate.provider = llm or indictrans2.
+phrases:
+  "The nature of the mind is such that it is always seeking something.":
+    "మనసు స్వభావం అలాంటిది, అది ఎప్పుడూ దేనికోసమో వెతుకుతూనే ఉంటుంది."
+  "If you attend to this one moment, everything else will fall into place.":
+    "ఈ ఒక్క క్షణం మీద శ్రద్ధ పెడితే, మిగతావన్నీ వాటంతట అవే కుదురుకుంటాయి."
+  "Your body and your mind are not you. They are things that you have gathered.":
+    "మీ శరీరం, మీ మనసు మీరు కాదు. అవి మీరు పోగుచేసుకున్నవి."
+  "The more aware you become, the less you suffer.":
+    "మీలో అవగాహన పెరిగేకొద్దీ, బాధ తగ్గుతుంది."
+  "Do not try to become peaceful. See how you are creating your own turmoil.":
+    "ప్రశాంతంగా మారాలని ప్రయత్నించకండి. మీ గందరగోళాన్ని మీరే ఎలా సృష్టిస్తున్నారో చూడండి."
+  "This is not a philosophy. This is a science of inner wellbeing.":
+    "ఇది తత్వశాస్త్రం కాదు. ఇది లోపలి క్షేమానికి సంబంధించిన శాస్త్రం."

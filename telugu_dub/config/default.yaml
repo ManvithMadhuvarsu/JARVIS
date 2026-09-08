@@ -1,0 +1,72 @@
+# Production preset: open weights end-to-end, single GPU (>=24 GB).
+workdir: runs/default
+source_lang: en
+target_lang: te
+
+asr:
+  provider: faster_whisper      # faster_whisper | whisperx | srt
+  model: large-v3
+  device: auto
+  compute_type: float16
+  language: en
+  vad: true
+  diarize: false                # true if more than one person speaks on camera
+  max_segment_seconds: 12.0
+  min_segment_seconds: 1.2
+  merge_gap_seconds: 0.35
+
+translate:
+  provider: llm                 # llm | indictrans2 | mock
+  model: claude-sonnet-5
+  length_control: true
+  length_tolerance: 0.12
+  context_window: 2
+  glossary: config/glossary_te.yaml
+  style: >-
+    Contemplative spiritual discourse. Warm, simple, spoken Telugu that a
+    village listener and a city listener both understand. Never bookish.
+
+tts:
+  provider: indicf5             # indicf5 | sarvam | elevenlabs | mock
+  ref_audio: samples/reference_voice.wav   # 5-15 s clean clip of the target voice
+  ref_text: ""                             # its exact transcript (IndicF5 needs it)
+  sample_rate: 24000
+  speaking_rate: 1.0
+
+prosody:
+  # Telugu articulation rate of the TTS voice, in syllables/second.
+  # Measure it: python scripts/calibrate_rate.py --config <this file>
+  target_syllables_per_second: 6.5
+  pause_per_comma: 0.18
+  pause_per_sentence: 0.34
+  headroom: 0.95
+
+align:
+  max_speedup: 1.15
+  max_slowdown: 0.90
+  hard_max_speedup: 1.30
+  borrow_gap_fraction: 0.80
+  max_shift: 0.30
+  keep_start_anchor: true
+
+mix:
+  keep_background: true
+  separator: demucs             # demucs | ducking | none
+  background_gain_db: -6.0
+  dub_gain_db: 0.0
+  loudness_target_lufs: -16.0
+
+lipsync:
+  provider: latentsync          # latentsync | musetalk | wav2lip | sync_api | none
+  repo_path: third_party/LatentSync
+  checkpoint: third_party/LatentSync/checkpoints/latentsync_unet.pt
+  inference_steps: 20
+  guidance_scale: 1.5
+  resolution: 512
+  face_restore: true
+
+output:
+  burn_subtitles: false
+  write_srt: true
+  crf: 18
+  preset: medium

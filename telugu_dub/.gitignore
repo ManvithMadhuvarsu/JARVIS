@@ -1,0 +1,11 @@
+runs/
+third_party/
+samples/*.mp4
+samples/*.wav
+samples/_src_segments/
+samples/source.*
+!samples/demo_en.srt
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/

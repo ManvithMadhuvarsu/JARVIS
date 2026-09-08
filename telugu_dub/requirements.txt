@@ -1,0 +1,6 @@
+# Core pipeline: enough to run the offline POC and all the timing logic.
+pyyaml>=6.0
+imageio-ffmpeg>=0.4.9      # static ffmpeg fallback; a system ffmpeg is preferred
+yt-dlp>=2024.1.0
+requests>=2.31             # hosted TTS / lip-sync providers
+pytest>=8.0                # tests

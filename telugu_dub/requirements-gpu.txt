@@ -1,0 +1,16 @@
+# Real models. Install into a CUDA-enabled environment.
+# Lip-sync repos are NOT here — they pin conflicting torch versions and get
+# their own venvs (see docs/RUNBOOK.md).
+
+torch>=2.1                 # match your CUDA build
+faster-whisper>=1.0        # ASR
+whisperx>=3.1              # ASR + word alignment + diarization (optional)
+transformers>=4.40         # IndicF5, IndicTrans2
+soundfile>=0.12
+numpy>=1.24
+sentencepiece>=0.1.99      # IndicTrans2 tokenizer
+demucs>=4.0                # background/music separation
+anthropic>=0.40            # translate.provider: llm
+
+# IndicTrans2 also needs its toolkit:
+#   pip install git+https://github.com/VarunGumma/IndicTransToolkit
