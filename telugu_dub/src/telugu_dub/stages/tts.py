@@ -10,7 +10,9 @@ Providers
   indicf5    : AI4Bharat IndicF5 (open weights, 11 Indic languages incl. Telugu).
                Zero-shot voice cloning from a reference clip + its transcript,
                so the dub can carry the speaker's own timbre. 24 kHz output.
-  sarvam     : Sarvam Bulbul (hosted, Indian-language TTS, streaming).
+  sarvam     : Sarvam Bulbul v3 — trained from scratch on Indian speech rather
+               than adapted from an English-first model, which is what keeps
+               Telugu retroflex consonants and pitch range intact. Hosted.
   elevenlabs : multilingual v2/v3 + instant voice cloning. Best prosody control,
                per-character pricing, cloud only.
   espeak     : libespeak-ng via ctypes. Robotic formant synthesis, but real
@@ -170,12 +172,15 @@ def _sarvam_engine(cfg: TtsCfg):
         r = requests.post(
             "https://api.sarvam.ai/text-to-speech",
             headers={"api-subscription-key": key},
-            json={"inputs": [seg.text_tgt], "target_language_code": "te-IN",
-                  "speaker": cfg.voice or "meera", "speech_sample_rate": 22050,
-                  "enable_preprocessing": True, "model": "bulbul:v2"},
+            json={"text": seg.text_tgt, "target_language_code": "te-IN",
+                  "speaker": (cfg.voice or "shubh").lower(),  # names are lowercase
+                  "model": "bulbul:v3", "pace": cfg.speaking_rate,
+                  "output_audio_codec": "wav"},
             timeout=120)
         r.raise_for_status()
-        raw = base64.b64decode(r.json()["audios"][0])
+        payload = r.json()
+        audios = payload.get("audios") or [payload.get("audio")]
+        raw = base64.b64decode(audios[0])
         tmp = dst.with_suffix(".raw.wav")
         tmp.write_bytes(raw)
         to_pcm16(tmp, dst, cfg.sample_rate)
