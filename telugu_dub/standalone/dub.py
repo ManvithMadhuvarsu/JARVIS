@@ -14,9 +14,25 @@ English audio -> Telugu audio, native voice, original background untouched.
 Self-contained: one file, no local package to install. Every stage caches to
 the work directory, so a failed API call costs you that stage and nothing else.
 
-Environment:
+Environment (put these in a `.env` file next to this script — see below):
     SARVAM_API_KEY      https://dashboard.sarvam.ai   (Rs.100 free credits)
     ANTHROPIC_API_KEY   https://console.anthropic.com
+
+--------------------------------------------------------------------------
+KEYS GO IN A LOCAL .env FILE, NEVER IN THIS SCRIPT AND NEVER IN GIT.
+
+    Create standalone/.env (same folder as this file) containing:
+
+        SARVAM_API_KEY=sk_xxxxxxxxxxxxxxxxxxxxxxxx
+        ANTHROPIC_API_KEY=sk-ant-api03-xxxxxxxxxxxxxxxxxxxxxxxx
+
+    dub.py loads it automatically on every run — no `export` / `$env:` needed.
+    .env is listed in .gitignore (both the repo root and this folder), and
+    `git status` will not show it as a change to commit. Never paste real keys
+    into a chat, a commit, or a file that isn't .env — treat a key that was
+    ever pasted anywhere outside your own machine as compromised and rotate
+    it (delete + recreate) on the provider's dashboard.
+--------------------------------------------------------------------------
 """
 from __future__ import annotations
 
@@ -35,6 +51,26 @@ import wave
 from array import array
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
+
+
+def _load_dotenv(path: Path) -> None:
+    """Minimal .env loader — no extra dependency for two lines of KEY=value.
+
+    Only sets a variable if it is not already set in the real environment, so
+    `$env:SARVAM_API_KEY=...` in your shell still wins over the file.
+    """
+    if not path.exists():
+        return
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        key, value = key.strip(), value.strip().strip('"').strip("'")
+        os.environ.setdefault(key, value)
+
+
+_load_dotenv(Path(__file__).resolve().parent / ".env")
 
 # ---------------------------------------------------------------------------
 # Telugu prosody: how long a line will take to say, before we synthesise it.
@@ -416,7 +452,8 @@ def translate(lines: list[Line], state: State, model: str, rate: float,
     import anthropic
 
     if not os.environ.get("ANTHROPIC_API_KEY"):
-        sys.exit("ANTHROPIC_API_KEY is not set — https://console.anthropic.com")
+        sys.exit("ANTHROPIC_API_KEY is not set. Put it in standalone/.env — "
+                 "https://console.anthropic.com")
     client = anthropic.Anthropic()
 
     def ask(batch: list[Line], tighten: bool) -> dict[int, str]:
@@ -481,8 +518,8 @@ def synthesize(lines: list[Line], work: Path, state: State, speaker: str,
 
     key = os.environ.get("SARVAM_API_KEY")
     if not key:
-        sys.exit("SARVAM_API_KEY is not set — https://dashboard.sarvam.ai "
-                 "(Rs.100 free credits, no card)")
+        sys.exit("SARVAM_API_KEY is not set. Put it in standalone/.env — "
+                 "https://dashboard.sarvam.ai (Rs.100 free credits, no card)")
 
     out = work / "tts"
     out.mkdir(parents=True, exist_ok=True)
