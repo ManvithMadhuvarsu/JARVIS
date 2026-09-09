@@ -41,21 +41,27 @@ Steps 4 and 7 — his actual voice, and lip-sync — are the two parts that
 determine whether the result is convincing, and they're the focus of the
 plan below.
 
+**Timeline: 3–5 weeks end to end**, from a standing start to a full clip with
+his voice and lip-sync, run with one or two people and the two tracks below
+overlapped rather than done strictly in sequence. See §5 for the week-by-week
+breakdown.
+
 ---
 
 ## 2. Step 4: Sadhguru's voice, in Telugu
 
 Two approaches, in order of effort:
 
-### Zero-shot cloning (fast path)
+### Zero-shot cloning (fast path) — same day
 Feed a TTS model a short clean reference clip of his voice (10–15 seconds)
 alongside the Telugu text, and it imitates the *timbre* of that clip. No
-training required — this can produce a result immediately. What it will
-**not** capture: his delivery — the long pauses, the way he lands emphasis,
-the timing that actually makes him sound like him rather than "a similar
-voice." Good for a fast first pass, a ceiling on realism.
+training required — this can produce a result immediately, same day it's
+attempted. What it will **not** capture: his delivery — the long pauses, the
+way he lands emphasis, the timing that actually makes him sound like him
+rather than "a similar voice." Good for a fast first pass, a ceiling on
+realism.
 
-### Fine-tuned voice model (the real target)
+### Fine-tuned voice model (the real target) — 2–3 weeks
 Train a voice model on a substantial set of his own recordings, so it
 captures timbre *and* delivery. What this takes:
 
@@ -67,24 +73,34 @@ captures timbre *and* delivery. What this takes:
 
 His public catalogue is overwhelmingly English, so the plan is:
 
-1. **Collect 5–20 hours of clean English audio** — long single-camera talks,
-   background/audience stripped out (step 1 above, reused as a prep tool).
-2. **Transcribe and hand-correct** the training transcripts — this is the
-   ceiling on fine-tune quality, worth getting right.
+1. **Collect 5–20 hours of clean English audio** (2–4 days elapsed, mostly
+   waiting on downloads/organizing — light effort, can run alongside
+   everything else) — long single-camera talks, background/audience
+   stripped out (step 1 above, reused as a prep tool).
+2. **Transcribe and hand-correct** the training transcripts (2–3 days —
+   transcription itself is fast, the hand-correction pass is what takes the
+   time) — this is the ceiling on fine-tune quality, worth getting right.
 3. **Fine-tune a voice model** (F5-TTS-based architecture, Indic-capable)
    on that English audio, using the standard fine-tuning procedure for that
-   model family. This step needs a GPU with real memory (A100-class),
-   running for several hours.
-4. **Generate Telugu with the fine-tuned model** and evaluate it by ear —
-   specifically with a native Telugu speaker, blind (they shouldn't know in
-   advance which clip is the target voice), scoring pronunciation, pitch,
-   and rhythm separately, since a voice can nail one and miss another.
-5. **Decide based on that listening test:**
+   model family (1–2 days — the training run itself is hours of GPU time,
+   the rest is setup and re-running after issues). This step needs a GPU
+   with real memory (A100-class).
+4. **Generate Telugu with the fine-tuned model** and evaluate it by ear
+   (1–2 days) — specifically with a native Telugu speaker, blind (they
+   shouldn't know in advance which clip is the target voice), scoring
+   pronunciation, pitch, and rhythm separately, since a voice can nail one
+   and miss another.
+5. **Decide based on that listening test** (same day as step 4):
    - If the Telugu output is convincing → that's the production voice.
    - If it isn't → the same fine-tuned model still gives a strong result for
      **English**-in-his-voice output, and Telugu falls back to zero-shot
      cloning (his timbre, without full delivery) as the interim answer while
      the cross-lingual approach is refined further.
+
+Steps 1–2 can run in parallel with the audio-pipeline work in §5 step 1, so
+they don't add to the critical path on their own — the fine-tune and test
+(steps 3–4) are what actually gate the timeline, at roughly a week once the
+training data is ready.
 
 **Consent is part of the plan, not an afterthought.** Training a model that
 can make him say sentences he never spoke is a bigger step than dubbing his
@@ -94,6 +110,10 @@ written consent, with the resulting model kept access-controlled.
 ---
 
 ## 3. Step 7: Lip-sync
+
+**Timeline: 3–5 days** for the validation pass (steps 1–3 below); folding
+lip-sync into a full video happens in §5 step 5, once a voice is ready to
+pair it with.
 
 Plan:
 
@@ -150,16 +170,48 @@ spending time or money on a full video.
 
 ---
 
-## 5. Plan, in order
+## 5. Plan and timeline
 
-1. **Get the audio/timing pipeline producing a finished Telugu track** —
-   translation, a stock or zero-shot Telugu voice, timing fit, background
-   preserved. This is the fast, low-risk foundation everything else sits on.
-2. **Collect and prepare the training audio** for the voice model in
-   parallel — this can start immediately and doesn't block step 1.
-3. **Fine-tune the voice model, test it in Telugu, and make the go/no-go
-   call** on cross-lingual quality with a real Telugu listener.
-4. **Rent a GPU and validate lip-sync on the beard test clip.**
-5. **Combine everything into one full run** — his voice (or the best
-   available fallback), timing-fitted, lip-synced, over the original
-   background — and review the complete result before wider use.
+**Total: 3–5 weeks from a standing start to one finished clip** — his voice
+(or the best available fallback), lip-synced, over the original background.
+That's a lean-to-medium POC timeline: fast enough to get a real answer
+quickly, not a rushed weekend hack that skips the listening tests that
+actually determine whether it's convincing.
+
+Two tracks run in parallel rather than one strict sequence — the voice model
+work does not wait on the audio pipeline, and vice versa:
+
+```
+Week    1          2          3          4          5
+        │──────────│──────────│──────────│──────────│
+Track A [ audio pipeline: translate → voice → fit → mix ]
+        │──────────│
+        (done — Telugu track ready with a stock/zero-shot voice)
+
+Track B            [ collect & transcribe training audio ]
+                    │──────────│
+                               [ fine-tune → test → decide ]
+                               │──────────│
+                                          [ lip-sync beard test ]
+                                          │────│
+                                                     [ combine + review ]
+                                                     │──────────│
+```
+
+| # | Step | Duration | Depends on |
+|---|---|---|---|
+| 1 | **Audio pipeline** — translation, timing fit, a stock or zero-shot Telugu voice, background preserved | **~1 week** | nothing — starts immediately |
+| 2 | **Collect + transcribe training audio** for the voice model | **~1 week**, overlapped with step 1 | nothing — runs alongside step 1 |
+| 3 | **Fine-tune the voice model, test it in Telugu, go/no-go call** | **~1 week** | step 2 finished |
+| 4 | **Rent a GPU, validate lip-sync on the beard test clip** | **3–5 days**, overlapped with step 3 | nothing — only needs the test clip |
+| 5 | **Combine into one full run and review** — voice + lip-sync + background, end to end | **~1 week** | steps 1, 3, 4 all finished |
+
+**Where the timeline can compress:** if the fast-path zero-shot voice (§2)
+turns out to be good enough on review, step 3 becomes optional and the whole
+plan collapses to roughly **2 weeks** — step 1, the lip-sync test, and one
+combined run.
+
+**Where it can stretch:** if the fine-tuned voice fails the Telugu listening
+test in step 3 and needs a second iteration (different training data, a
+different base model), add another week. This is the one genuinely
+open-ended part of the plan — everything else has a known shape.
