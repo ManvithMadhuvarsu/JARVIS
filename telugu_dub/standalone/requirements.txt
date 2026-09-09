@@ -1,0 +1,9 @@
+# One pipeline, five dependencies.
+demucs>=4.0.1            # 1. splits voice from background
+faster-whisper>=1.1.0    # 2. transcription
+anthropic>=0.40          # 3. translation
+requests>=2.31           # 4. Sarvam TTS
+imageio-ffmpeg>=0.4.9    # 5. ffmpeg fallback if you have no system ffmpeg
+
+# torch comes in with demucs. For GPU, install it first from pytorch.org
+# with the CUDA build that matches your driver, then run this file.
