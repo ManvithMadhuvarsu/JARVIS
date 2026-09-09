@@ -1,0 +1,78 @@
+# ============================================================================
+# ENGLISH AUDIO -> NATIVE TELUGU VOICE, ORIGINAL BACKGROUND UNTOUCHED
+#
+#   export SARVAM_API_KEY=...        # ₹100 free credits, no card
+#   export ANTHROPIC_API_KEY=...
+#   pip install -r requirements.txt -r requirements-gpu.txt
+#
+#   python -m telugu_dub run --audio talk.mp3 \
+#       --config config/native_telugu.yaml --mode audio
+#
+# The background is preserved by SEPARATION, not by ducking. Demucs splits the
+# recording into vocals and everything-else; we delete the English vocals, keep
+# the everything-else stem bit-for-bit, and put the Telugu on top. Ducking (the
+# other option) leaves the English voice quietly audible underneath forever.
+# ============================================================================
+workdir: runs/native_te
+mode: audio             # no lip-sync; --mode video keeps the picture as-is
+voice: preset
+
+asr:
+  provider: faster_whisper
+  model: large-v3       # transcribes the ISOLATED vocals, so fewer errors
+  device: auto
+  compute_type: float16
+  language: en
+  vad: true
+  max_segment_seconds: 8.0
+  min_segment_seconds: 1.0
+  merge_gap_seconds: 0.35
+
+translate:
+  provider: llm         # dubbing rewrite: meaning, tone, and a length budget
+  model: claude-sonnet-5
+  length_control: true
+  length_tolerance: 0.12
+  context_window: 2
+  glossary: config/glossary_te.yaml
+  style: >-
+    Natural spoken Telugu for a general audience. Keep the speaker's tone —
+    warmth, humour, bluntness. Keep the English loanwords Telugu speakers
+    actually use (టైం, ఆఫీసు, ఫోన్); do not reach for Sanskrit substitutes.
+
+tts:
+  provider: sarvam      # Bulbul v3 — trained from scratch on Indian speech
+  voice: shubh          # male; ritu/priya/neha female. Names are lowercase.
+  sample_rate: 24000
+  speaking_rate: 1.0
+
+prosody:
+  # Bulbul speaks at its own rate. Measure it once, then trust the budgets:
+  #   python scripts/calibrate_rate.py --config config/native_telugu.yaml --write
+  target_syllables_per_second: 6.5
+  pause_per_comma: 0.18
+  pause_per_sentence: 0.34
+  headroom: 0.95
+
+align:
+  max_speedup: 1.15
+  max_slowdown: 0.90
+  hard_max_speedup: 1.30
+  borrow_gap_fraction: 0.80
+  max_shift: 0.30
+  keep_start_anchor: true
+
+mix:
+  keep_background: true
+  separator: demucs     # <- THE setting that preserves your background
+  background_gain_db: -3.0   # English voice is gone, so the bed can sit high
+  dub_gain_db: 0.0
+  loudness_target_lufs: -16.0
+
+lipsync:
+  provider: none
+
+output:
+  container: mp3
+  write_srt: true
+  audio_bitrate: 192k
