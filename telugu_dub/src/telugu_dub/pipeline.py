@@ -14,10 +14,11 @@ from .config import Config
 from .media import duration_of
 from .modes import MODE_SPECS, describe
 from .schema import Manifest
-from .stages import asr, ingest, lipsync, mux, render, translate, tts
+from .stages import (asr, ingest, lipsync, mux, render, separate, translate,
+                     tts)
 
-STAGES = ["ingest", "asr", "translate", "tts", "align", "render", "mix",
-          "lipsync", "mux"]
+STAGES = ["ingest", "separate", "asr", "translate", "tts", "align", "render",
+          "mix", "lipsync", "mux"]
 
 
 class Pipeline:
@@ -95,8 +96,35 @@ class Pipeline:
             self.log(f"{info.duration:.1f}s  {info.width}x{info.height} "
                      f"@ {info.fps}fps")
 
+    def _stage_separate(self, **_) -> None:
+        """Split voice from background, so the background can be preserved."""
+        if not (self.cfg.mix.keep_background and self.cfg.mix.separator == "demucs"):
+            self.log("separation not requested; the original stays as the bed")
+            return
+        source = self.manifest.artifacts["source_video"]
+        self.log(f"separating {Path(source).name} (this is the slow step)")
+        try:
+            stems = separate.separate(source, self.work)
+        except separate.SeparationUnavailable as exc:
+            # Falling back is better than failing a long run outright, but the
+            # user asked for their background to be preserved, so say plainly
+            # that it will not be.
+            self.log(f"WARNING: {exc}")
+            self.log("falling back to ducking — the English voice will remain "
+                     "faintly audible under the dub")
+            self.cfg.mix.separator = "ducking"
+            return
+        self.manifest.artifacts.update(stems)
+        self.manifest.artifacts["asr_audio"] = separate.ensure_ffmpeg_stems(
+            stems, self.work)
+        self.log("vocals and background separated")
+
     def _stage_asr(self, **_) -> None:
-        chunks = asr.transcribe(self.manifest.artifacts["source_audio"], self.cfg.asr)
+        # Prefer the isolated vocals: transcribing speech with music under it
+        # is a needless source of errors.
+        audio = (self.manifest.artifacts.get("asr_audio")
+                 or self.manifest.artifacts["source_audio"])
+        chunks = asr.transcribe(audio, self.cfg.asr)
         segments = asr.build_units(chunks, self.cfg.asr)
         self.manifest.segments = segments
         speech = sum(s.source_duration for s in segments)
@@ -161,9 +189,12 @@ class Pipeline:
 
     def _stage_mix(self, **_) -> None:
         out = str(self.work / "dub_mixed.wav")
+        # The separated background is already voice-free, so it is used as-is;
+        # otherwise the full original is ducked under the dub.
+        bed = (self.manifest.artifacts.get("background")
+               or self.manifest.artifacts["source_audio"])
         render.mix_with_background(
-            self.manifest.artifacts["dub_track"],
-            self.manifest.artifacts["source_audio"], out,
+            self.manifest.artifacts["dub_track"], bed, out,
             self.cfg.mix, self.cfg.tts.sample_rate)
         self.manifest.artifacts["dub_audio"] = out
 

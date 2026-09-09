@@ -42,19 +42,21 @@ class ModeSpec:
 
 MODE_SPECS: dict[str, ModeSpec] = {
     "audio": ModeSpec(
-        stages=("ingest", "asr", "translate", "tts", "align", "render", "mix", "mux"),
+        stages=("ingest", "separate", "asr", "translate", "tts", "align",
+                "render", "mix", "mux"),
         needs_video=False, container="mp3",
         summary="Telugu audio track only — podcast, radio, or a separate audio "
                 "language track alongside the original video."),
     "video": ModeSpec(
-        stages=("ingest", "asr", "translate", "tts", "align", "render", "mix", "mux"),
+        stages=("ingest", "separate", "asr", "translate", "tts", "align",
+                "render", "mix", "mux"),
         needs_video=True, container="mp4",
         summary="Original picture with the Telugu dub over it. Lips stay "
                 "English — the standard voice-over look, and what most dubbed "
                 "content on television actually is."),
     "video-lipsync": ModeSpec(
-        stages=("ingest", "asr", "translate", "tts", "align", "render", "mix",
-                "lipsync", "mux"),
+        stages=("ingest", "separate", "asr", "translate", "tts", "align",
+                "render", "mix", "lipsync", "mux"),
         needs_video=True, container="mp4",
         summary="Picture regenerated so the mouth matches the Telugu. "
                 "Needs a GPU and 10-25 minutes per video-minute."),

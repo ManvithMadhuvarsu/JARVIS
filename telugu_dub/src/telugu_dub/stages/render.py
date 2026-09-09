@@ -38,15 +38,14 @@ def render_dub_track(segments: list[Segment], workdir: str | Path,
     return write_pcm16(workdir / "dub_track.wav", track, sample_rate)
 
 
-def mix_with_background(dub_wav: str, source_audio: str, out_wav: str,
+def mix_with_background(dub_wav: str, bed_audio: str, out_wav: str,
                         cfg: MixCfg, sample_rate: int) -> str:
-    """Put the dub over the original bed.
+    """Put the dub over the bed.
 
-    demucs  : separate music/effects from the original speech and keep only the
-              non-vocal stems — the clean option, needs a GPU to be quick.
-    ducking : keep the full original quietly underneath and side-chain duck it
-              whenever the dub speaks. No separation, no artefacts, but the
-              original voice stays faintly audible.
+    `bed_audio` is either the separated background (already voice-free, so it
+    is mixed in at full level) or the untouched original (in which case it is
+    side-chain ducked so the English voice sits under the dub rather than
+    fighting it). The separate stage decides which; this function only mixes.
     """
     if not cfg.keep_background or cfg.separator == "none":
         ffmpeg(["-i", dub_wav, "-af",
@@ -54,12 +53,20 @@ def mix_with_background(dub_wav: str, source_audio: str, out_wav: str,
                 "-ar", str(sample_rate), "-c:a", "pcm_s16le", out_wav])
         return out_wav
 
-    bed = source_audio
     if cfg.separator == "demucs":
-        bed = _demucs_background(source_audio, Path(out_wav).parent, sample_rate)
+        # Voice-free bed: no ducking needed, mix it straight in.
+        ffmpeg([
+            "-i", bed_audio, "-i", dub_wav, "-filter_complex",
+            (f"[0:a]aresample={sample_rate},volume={cfg.background_gain_db}dB[bg];"
+             f"[1:a]aresample={sample_rate},volume={cfg.dub_gain_db}dB[dub];"
+             f"[bg][dub]amix=inputs=2:duration=longest:dropout_transition=0,"
+             f"loudnorm=I={cfg.loudness_target_lufs}:TP=-1.5:LRA=11[out]"),
+            "-map", "[out]", "-ar", str(sample_rate), "-c:a", "pcm_s16le",
+            out_wav])
+        return out_wav
 
     ffmpeg([
-        "-i", bed, "-i", dub_wav,
+        "-i", bed_audio, "-i", dub_wav,
         "-filter_complex",
         (f"[0:a]aresample={sample_rate},volume={cfg.background_gain_db}dB[bg];"
          f"[1:a]aresample={sample_rate},volume={cfg.dub_gain_db}dB,asplit=2[dub][key];"
@@ -71,16 +78,3 @@ def mix_with_background(dub_wav: str, source_audio: str, out_wav: str,
     return out_wav
 
 
-def _demucs_background(source_audio: str, workdir: Path, sample_rate: int) -> str:
-    """Sum the non-vocal Demucs stems into one background bed."""
-    import subprocess
-
-    outdir = workdir / "demucs"
-    subprocess.run(["python", "-m", "demucs", "-n", "htdemucs", "--two-stems",
-                    "vocals", "-o", str(outdir), source_audio], check=True)
-    stem = next(outdir.rglob("no_vocals.wav"), None)
-    if stem is None:
-        return source_audio
-    bed = workdir / "background.wav"
-    to_pcm16(stem, bed, sample_rate)
-    return str(bed)
