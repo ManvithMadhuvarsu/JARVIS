@@ -1,0 +1,575 @@
+<title>Native Telugu Voice Stack</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+Telugu:wght@400;600&display=swap">
+<style>
+  :root {
+    --bg: #EFF2F1;
+    --surface: #FFFFFF;
+    --sunken: #E3E8E7;
+    --ink: #121A18;
+    --ink-2: #475552;
+    --ink-3: #74827F;
+    --rule: #D5DCDA;
+    --rule-strong: #B8C3C0;
+    --teal: #0B6155;
+    --teal-soft: #D6E8E4;
+    --clay: #9B3220;
+    --clay-soft: #F3DCD7;
+    --gold: #8A6410;
+    --gold-soft: #F0E6CE;
+
+    --f-display: "Bricolage Grotesque", "Helvetica Neue", Arial, sans-serif;
+    --f-body: "Source Serif 4", Georgia, "Times New Roman", serif;
+    --f-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+    --f-te: "Noto Sans Telugu", "Nirmala UI", sans-serif;
+
+    --measure: 68ch;
+    --frame: 1120px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0F1413; --surface: #161D1B; --sunken: #1D2624;
+      --ink: #E4EAE8; --ink-2: #A0AFAB; --ink-3: #75827F;
+      --rule: #242E2C; --rule-strong: #36423F;
+      --teal: #4FBFAA; --teal-soft: #102E29;
+      --clay: #E07C66; --clay-soft: #33201B;
+      --gold: #D6A94A; --gold-soft: #2E2614;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0F1413; --surface: #161D1B; --sunken: #1D2624;
+    --ink: #E4EAE8; --ink-2: #A0AFAB; --ink-3: #75827F;
+    --rule: #242E2C; --rule-strong: #36423F;
+    --teal: #4FBFAA; --teal-soft: #102E29;
+    --clay: #E07C66; --clay-soft: #33201B;
+    --gold: #D6A94A; --gold-soft: #2E2614;
+  }
+
+  * { box-sizing: border-box; }
+  body { background: var(--bg); color: var(--ink); font-family: var(--f-body);
+         font-size: 17px; line-height: 1.62; -webkit-font-smoothing: antialiased; }
+  .frame { max-width: var(--frame); margin: 0 auto; padding: 0 28px 96px; }
+  .col { max-width: var(--measure); }
+
+  header.masthead { padding: 56px 0 30px; border-bottom: 2px solid var(--ink);
+                    display: flex; flex-direction: column; gap: 18px; }
+  .kicker { font-family: var(--f-mono); font-size: 11.5px; letter-spacing: .16em;
+            text-transform: uppercase; color: var(--teal); font-weight: 600; }
+  h1 { font-family: var(--f-display); font-weight: 700;
+       font-size: clamp(36px, 5.8vw, 62px); line-height: 1.03;
+       letter-spacing: -.025em; margin: 0; text-wrap: balance; max-width: 17ch; }
+  .standfirst { font-size: 20px; line-height: 1.5; color: var(--ink-2);
+                max-width: 60ch; margin: 0; }
+
+  section { padding: 52px 0 0; }
+  .eyebrow { font-family: var(--f-mono); font-size: 11.5px; letter-spacing: .16em;
+             text-transform: uppercase; color: var(--ink-3); margin: 0 0 14px;
+             padding-bottom: 8px; border-bottom: 1px solid var(--rule); }
+  h2 { font-family: var(--f-display); font-weight: 700;
+       font-size: clamp(25px, 3.2vw, 34px); line-height: 1.12;
+       letter-spacing: -.02em; margin: 0 0 16px; text-wrap: balance; max-width: 24ch; }
+  h3 { font-family: var(--f-display); font-weight: 600; font-size: 18px;
+       letter-spacing: -.01em; margin: 30px 0 8px; }
+  p { margin: 0 0 16px; }
+  a { color: var(--teal); text-underline-offset: 3px; }
+  strong { font-weight: 600; }
+  code { font-family: var(--f-mono); font-size: .86em; background: var(--sunken);
+         padding: 1px 5px; border-radius: 2px; }
+  .te { font-family: var(--f-te); }
+
+  /* verdict block */
+  .verdict { background: var(--surface); border: 1px solid var(--rule);
+             border-left: 3px solid var(--teal); padding: 24px 26px; margin: 26px 0; }
+  .verdict h3 { margin-top: 0; }
+  .verdict ol { margin: 0; padding-left: 20px; }
+  .verdict li { margin-bottom: 10px; }
+  .verdict li:last-child { margin-bottom: 0; }
+
+  .scroller { overflow-x: auto; margin: 22px 0 8px; }
+  table { border-collapse: collapse; width: 100%; min-width: 640px;
+          font-family: var(--f-mono); font-size: 13px; }
+  caption { caption-side: bottom; text-align: left; color: var(--ink-3);
+            font-family: var(--f-mono); font-size: 11.5px; padding-top: 10px;
+            line-height: 1.55; }
+  th { text-align: left; font-weight: 600; font-size: 11px; letter-spacing: .09em;
+       text-transform: uppercase; color: var(--ink-3);
+       border-bottom: 1px solid var(--rule-strong); padding: 0 14px 8px 0;
+       vertical-align: bottom; }
+  td { padding: 9px 14px 9px 0; border-bottom: 1px solid var(--rule);
+       vertical-align: top; color: var(--ink-2); }
+  td:first-child { color: var(--ink); font-weight: 500; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums;
+                   padding-right: 0; }
+  tr.pick td { background: var(--teal-soft); }
+  tr.pick td:first-child { color: var(--ink); }
+
+  .tag { display: inline-block; font-size: 10.5px; letter-spacing: .05em;
+         padding: 2px 7px; border-radius: 2px; white-space: nowrap; }
+  .tag.native { background: var(--teal-soft); color: var(--teal); }
+  .tag.adapted { background: var(--clay-soft); color: var(--clay); }
+  .tag.mid { background: var(--gold-soft); color: var(--gold); }
+
+  figure { margin: 26px 0 8px; }
+  figcaption { font-family: var(--f-mono); font-size: 11.5px; line-height: 1.55;
+               color: var(--ink-3); margin-top: 12px; max-width: 70ch; }
+  .figbox { background: var(--surface); border: 1px solid var(--rule);
+            padding: 18px; overflow-x: auto; }
+  svg { display: block; }
+
+  pre { background: var(--surface); border: 1px solid var(--rule);
+        border-left: 2px solid var(--ink-3); padding: 16px 18px; overflow-x: auto;
+        margin: 18px 0; font-family: var(--f-mono); font-size: 12.5px;
+        line-height: 1.7; color: var(--ink-2); }
+  pre .c { color: var(--ink-3); }
+  pre .k { color: var(--teal); }
+
+  .note { background: var(--surface); border: 1px solid var(--rule);
+          border-top: 2px solid var(--clay); padding: 20px 22px; margin: 26px 0; }
+  .note h3 { margin-top: 0; }
+  .note p:last-child { margin-bottom: 0; }
+
+  ul { padding-left: 20px; margin: 0 0 16px; }
+  li { margin-bottom: 7px; }
+  li::marker { color: var(--ink-3); }
+
+  .steps { list-style: none; padding: 0; margin: 20px 0 0; counter-reset: s; }
+  .steps > li { counter-increment: s; position: relative; padding-left: 44px;
+                margin-bottom: 26px; }
+  .steps > li::before { content: counter(s); position: absolute; left: 0; top: 1px;
+    width: 28px; height: 28px; display: grid; place-items: center;
+    font-family: var(--f-mono); font-size: 12px; font-weight: 600;
+    color: var(--teal); border: 1px solid var(--teal); border-radius: 50%; }
+  .steps h3 { margin: 0 0 4px; }
+  .steps p { margin-bottom: 8px; }
+  .steps pre { margin: 10px 0 0; }
+
+  footer { margin-top: 64px; padding-top: 22px; border-top: 2px solid var(--ink);
+           font-family: var(--f-mono); font-size: 11.5px; color: var(--ink-3);
+           display: flex; flex-wrap: wrap; gap: 6px 26px; }
+
+  @media (max-width: 640px) {
+    body { font-size: 16px; }
+    .frame { padding: 0 18px 72px; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+
+<div class="frame">
+
+  <header class="masthead">
+    <p class="kicker">Research &middot; Telugu dubbing stack</p>
+    <h1>Why the Telugu comes out sounding American</h1>
+    <p class="standfirst">
+      Your instinct is right, and it has been measured. Western text-to-speech
+      does not fail on Telugu by mispronouncing words — it fails on the
+      consonants and the pitch, which is exactly what a native ear catches and
+      no accuracy metric reports.
+    </p>
+  </header>
+
+  <section>
+    <p class="eyebrow">Verdict</p>
+    <div class="col">
+      <h2>What to use, and what to test this week</h2>
+    </div>
+    <div class="verdict col">
+      <h3>The stack</h3>
+      <ol>
+        <li><strong>Voice → Sarvam Bulbul v3.</strong> Trained from scratch on
+          Indian speech, not adapted from an English-first model. It beats
+          ElevenLabs v3 and Cartesia Sonic-3 on per-phoneme accent measures,
+          <em>especially on Telugu</em>. ₹30 per 10,000 characters — about
+          <strong>₹3 for a ten-minute talk</strong>.</li>
+        <li><strong>Translation → an LLM for the rewrite, Sarvam Translate as
+          the check.</strong> Sarvam Translate beat Gemini Pro, Claude and GPT-5
+          on Indic translation in 8 of 10 cases and is stronger on formal,
+          structured text; an LLM is still better at the dubbing-specific job of
+          holding tone and hitting a duration budget.</li>
+        <li><strong>Lip-sync → sync.so lipsync-2</strong> ($0.04–0.05/sec) or
+          <strong>HeyGen</strong> (~$2/min standard). This is 95% of your cost.</li>
+      </ol>
+      <h3>The test, before you spend anything</h3>
+      <ol>
+        <li>Sign up for Sarvam (₹100 free credits — no card).</li>
+        <li>Run <code>scripts/tts_shootout.py</code>. It puts the same Telugu
+          sentences through every provider into a folder with the vendor names
+          stripped from the filenames.</li>
+        <li>Have a Telugu speaker who is <em>not you</em> score them blind.</li>
+      </ol>
+    </div>
+  </section>
+
+  <section>
+    <p class="eyebrow">Diagnosis</p>
+    <div class="col">
+      <h2>Telugu is the language that breaks English-first models</h2>
+      <p>
+        The <a href="https://arxiv.org/abs/2604.25476">PSP benchmark</a> scores
+        Indic TTS on six phonological dimensions instead of one accuracy number.
+        Its central finding is a ranking by how badly systems collapse
+        <strong>retroflex consonants</strong> — the ones made with the tongue
+        curled back, which English does not have:
+      </p>
+    </div>
+
+    <figure>
+      <div class="figbox">
+        <svg viewBox="0 0 720 250" width="720" height="250" role="img"
+             aria-label="Retroflex collapse rate by language: Hindi about 1 percent, Telugu about 40 percent, Tamil about 68 percent.">
+          <g font-family="IBM Plex Mono, monospace">
+            <text x="8" y="22" fill="var(--ink)" font-size="12" font-weight="600">Retroflex collapse rate</text>
+            <text x="8" y="38" fill="var(--ink-3)" font-size="10">share of retroflex consonants rendered as the wrong sound — lower is better</text>
+
+            <!-- scale 0..80% -> x 130..680 -->
+            <line x1="130" y1="60" x2="130" y2="200" stroke="var(--rule-strong)" stroke-width="1"/>
+
+            <!-- Hindi ~1% -->
+            <text x="8" y="86" fill="var(--ink)" font-size="12">Hindi</text>
+            <rect x="130" y="72" width="7" height="22" fill="var(--teal)"/>
+            <text x="147" y="88" fill="var(--teal)" font-size="11">~1%</text>
+
+            <!-- Telugu ~40% -->
+            <text x="8" y="132" fill="var(--ink)" font-size="12" font-weight="600">Telugu</text>
+            <rect x="130" y="118" width="275" height="22" fill="var(--clay)"/>
+            <text x="415" y="134" fill="var(--clay)" font-size="11" font-weight="600">~40%</text>
+
+            <!-- Tamil ~68% -->
+            <text x="8" y="178" fill="var(--ink)" font-size="12">Tamil</text>
+            <rect x="130" y="164" width="467" height="22" fill="var(--clay)" opacity="0.55"/>
+            <text x="607" y="180" fill="var(--clay)" font-size="11">~68%</text>
+
+            <!-- axis -->
+            <line x1="130" y1="200" x2="680" y2="200" stroke="var(--rule)" stroke-width="1"/>
+            <g fill="var(--ink-3)" font-size="9.5" text-anchor="middle">
+              <text x="130" y="216">0%</text>
+              <text x="268" y="216">20%</text>
+              <text x="405" y="216">40%</text>
+              <text x="543" y="216">60%</text>
+              <text x="680" y="216">80%</text>
+            </g>
+            <text x="130" y="240" fill="var(--ink-3)" font-size="10">Telugu sits in the middle — bad enough to sound wrong, not so exotic that vendors fixed it.</text>
+          </g>
+        </svg>
+      </div>
+      <figcaption>
+        Measured across commercial systems on the PSP benchmark. The collapse
+        grows with phonological distance from English: Hindi barely suffers,
+        Telugu loses two of every five retroflex consonants, Tamil two of three.
+      </figcaption>
+    </figure>
+
+    <div class="col">
+      <p>
+        In practice: <span class="te">ట ఠ డ ఢ ణ ళ</span> come out as their
+        dental cousins. A Telugu speaker does not think “that consonant was
+        substituted” — they think “that person is not Telugu.” It is the single
+        loudest tell.
+      </p>
+
+      <h3>The second failure is pitch, and no metric catches it</h3>
+      <p>
+        PSP's prosodic-signature dimension surfaced what the paper calls
+        ElevenLabs Telugu's <strong>narrow-pitch-range failure</strong> — a pitch
+        range far tighter than a native speaker's, in a different rhythmic class.
+        You hear it as flat and mechanical: every word correct, nobody home.
+      </p>
+      <p>
+        The important part is the mismatch between metrics. ElevenLabs v3 posts
+        the <em>best</em> word error rate on Hindi (0.006) while failing the
+        prosody dimension on Telugu. <strong>WER cannot see this.</strong> Any
+        vendor claiming accuracy numbers for Indian languages is measuring the
+        thing that was never broken.
+      </p>
+
+      <div class="note">
+        <h3>This is a design decision, not a bug</h3>
+        <p>
+          ElevenLabs' voices are built English-first and extended outward, so
+          they carry English phonetics into every other language. The company's
+          own multilingual guidance describes it: teams integrate, then discover
+          their Dutch has an English accent. For a Telugu audience that is not a
+          rough edge — it is the whole impression.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <p class="eyebrow">Voices</p>
+    <div class="col">
+      <h2>Native-trained versus adapted</h2>
+      <p>
+        The distinction that matters is not language count. It is whether Telugu
+        was in the training data from the start or bolted on afterwards.
+      </p>
+    </div>
+    <div class="scroller">
+      <table>
+        <thead>
+          <tr><th>System</th><th>Training origin</th><th>Telugu accent</th>
+              <th class="num">Cost / 1M chars</th><th>Notes</th></tr>
+        </thead>
+        <tbody>
+          <tr class="pick">
+            <td>Sarvam Bulbul v3</td>
+            <td><span class="tag native">India-native</span></td>
+            <td>Best measured on PSP</td>
+            <td class="num">≈ $3.60</td>
+            <td>35+ voices, 11 languages; code-switches mid-sentence without an accent shift; ₹100 free credits</td>
+          </tr>
+          <tr>
+            <td>Indic Parler-TTS</td>
+            <td><span class="tag native">India-native</span></td>
+            <td>Strong on PSP</td>
+            <td class="num">open weights</td>
+            <td>Self-host; needs a GPU</td>
+          </tr>
+          <tr>
+            <td>IndicF5 (AI4Bharat)</td>
+            <td><span class="tag native">India-native</span></td>
+            <td>Good; 1,417 h Indic training</td>
+            <td class="num">open weights</td>
+            <td>The only open option that also clones a voice zero-shot</td>
+          </tr>
+          <tr>
+            <td>Smallest.ai Lightning</td>
+            <td><span class="tag native">India-native</span></td>
+            <td>Built for code-mixing</td>
+            <td class="num">usage-based</td>
+            <td>Sub-100 ms latency; aimed at voice agents</td>
+          </tr>
+          <tr>
+            <td>Azure Neural te-IN</td>
+            <td><span class="tag mid">per-locale</span></td>
+            <td>Locale-specific voices</td>
+            <td class="num">≈ $16</td>
+            <td>Mohan (m), Shruti (f). Older architecture, but genuinely te-IN</td>
+          </tr>
+          <tr>
+            <td>Google Cloud te-IN</td>
+            <td><span class="tag mid">per-locale</span></td>
+            <td>Locale-specific voices</td>
+            <td class="num">$4–30</td>
+            <td>Check which tier actually offers te-IN before budgeting Chirp 3 HD</td>
+          </tr>
+          <tr>
+            <td>ElevenLabs v3</td>
+            <td><span class="tag adapted">English-first</span></td>
+            <td>Retroflex collapse, narrow pitch</td>
+            <td class="num">plan-based</td>
+            <td>Superb voice quality, wrong phonetics for Telugu</td>
+          </tr>
+          <tr>
+            <td>Cartesia Sonic-3</td>
+            <td><span class="tag adapted">English-first</span></td>
+            <td>Worst retroflex + FAD on Telugu</td>
+            <td class="num">usage-based</td>
+            <td>Fast, but PSP ranks it last on the Telugu dimensions</td>
+          </tr>
+        </tbody>
+        <caption>
+          Sarvam beta pricing is ₹30 per 10,000 characters. A ten-minute talk is
+          roughly 12,000 Telugu characters — about ₹36, or $0.43.
+        </caption>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <p class="eyebrow">Grammar</p>
+    <div class="col">
+      <h2>Getting Telugu that reads as written by a Telugu speaker</h2>
+      <p>
+        You asked for text an AI can turn into structured, grammatical output.
+        Two tools, and they are good at different halves of the job.
+      </p>
+
+      <h3>Sarvam Translate — accuracy and formal grammar</h3>
+      <p>
+        In head-to-head evaluation it recorded the highest win rate in 8 of 10
+        cases against Gemini Pro, Claude and GPT-5, holding above 4.0 on a
+        5-point expert scale, and it is specifically stronger than general
+        models on <em>formal and structured</em> text. If your priority is
+        correct grammar and case marking, this is the stronger engine.
+      </p>
+
+      <h3>An LLM — tone, register and length</h3>
+      <p>
+        What a translation model will not do is rewrite a sentence to land in
+        3.4 seconds while keeping the joke. Dubbing needs meaning over
+        structure, a syllable budget per line, and a decision about which
+        English loanwords to keep — <span class="te">ఆఫీసు</span>,
+        <span class="te">ఫోన్</span> and <span class="te">టైం</span> are what
+        Telugu speakers actually say, and replacing them with Sanskrit
+        equivalents is the fastest way to sound like a textbook.
+      </p>
+      <p><strong>Use both:</strong> LLM writes the dubbing line, Sarvam Translate
+      renders the same source, and where they disagree materially, a human looks.
+      That disagreement list is short and it is where the errors live.</p>
+    </div>
+  </section>
+
+  <section>
+    <p class="eyebrow">Lip sync</p>
+    <div class="col">
+      <h2>The layer that costs the money</h2>
+      <p>
+        Lip-sync models are audio-driven, so they are nominally
+        language-agnostic — but they were trained overwhelmingly on English
+        video. Phonemes English lacks, retroflex consonants among them, force
+        the model to invent mouth shapes it has rarely seen. Bilabial accuracy
+        (<span class="te">ప బ మ</span>) needs to clear ~92% before a viewer
+        stops noticing.
+      </p>
+    </div>
+    <div class="scroller">
+      <table>
+        <thead>
+          <tr><th>Option</th><th>Type</th><th class="num">Cost / min</th><th>Notes</th></tr>
+        </thead>
+        <tbody>
+          <tr class="pick">
+            <td>sync.so lipsync-2</td><td>API</td><td class="num">$2.40–3.00</td>
+            <td>Specialist; cleanest API if you keep your own translation and voice</td>
+          </tr>
+          <tr>
+            <td>sync.so sync-3</td><td>API</td><td class="num">≈ $8.00</td>
+            <td>Higher fidelity tier</td>
+          </tr>
+          <tr>
+            <td>HeyGen Video Translate</td><td>End-to-end</td><td class="num">$2 / $4</td>
+            <td>Standard vs high-precision lip-sync; 175+ languages, integrated</td>
+          </tr>
+          <tr>
+            <td>Dubverse</td><td>End-to-end</td><td class="num">from $9/mo</td>
+            <td>Strongest Indian-language coverage at the cheap end; lip-sync is a higher tier</td>
+          </tr>
+          <tr>
+            <td>Rask AI</td><td>End-to-end</td><td class="num">per-minute</td>
+            <td>130+ languages, cloning + lip-sync + API; gets expensive at scale</td>
+          </tr>
+          <tr>
+            <td>NeuralGarage VisualDub</td><td>Studio</td><td class="num">enterprise</td>
+            <td>Indian; used for the Telugu and Hindi versions of <em>Coolie</em>. The quality bar</td>
+          </tr>
+          <tr>
+            <td>LatentSync / MuseTalk</td><td>Self-host</td><td class="num">GPU only</td>
+            <td>Free; 24 GB GPU; already wired into this repo</td>
+          </tr>
+        </tbody>
+        <caption>
+          Everything upstream of lip-sync — transcription, translation, Telugu
+          voice — costs well under $0.15 per finished minute. Lip-sync is
+          roughly 95% of the bill.
+        </caption>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <p class="eyebrow">Cost</p>
+    <div class="col">
+      <h2>What a finished minute costs</h2>
+    </div>
+    <div class="scroller">
+      <table>
+        <thead>
+          <tr><th>Stage</th><th>Choice</th><th class="num">Per finished minute</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Transcribe</td><td>Whisper large-v3, self-hosted</td><td class="num">~$0.01</td></tr>
+          <tr><td>Translate</td><td>LLM + Sarvam cross-check</td><td class="num">~$0.03</td></tr>
+          <tr><td>Telugu voice</td><td>Sarvam Bulbul v3</td><td class="num">~$0.05</td></tr>
+          <tr><td>Fit + mix</td><td>this pipeline</td><td class="num">$0.00</td></tr>
+          <tr><td><strong>Subtotal, audio only</strong></td><td>ship as voice-over</td><td class="num"><strong>~$0.09</strong></td></tr>
+          <tr class="pick"><td>Lip-sync</td><td>sync.so lipsync-2</td><td class="num">$2.40–3.00</td></tr>
+          <tr><td><strong>Total with lip-sync</strong></td><td></td><td class="num"><strong>~$2.50–3.10</strong></td></tr>
+        </tbody>
+        <caption>
+          Excludes human review, which is the real constraint: budget 2–4× the
+          source length in a Telugu reviewer's time for the first videos.
+        </caption>
+      </table>
+    </div>
+    <div class="col">
+      <p>
+        The shape of that table is the strategic point. <strong>A Telugu dub
+        without lip-sync costs about nine cents a minute.</strong> Lip-sync
+        multiplies it by thirty. Ship the audio-only version first, learn
+        whether Telugu viewers care about the mouths, and buy lip-sync only for
+        the videos where they do.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <p class="eyebrow">Test</p>
+    <div class="col">
+      <h2>The week's work</h2>
+    </div>
+    <ol class="steps col">
+      <li>
+        <h3>Get a Sarvam key</h3>
+        <p>₹100 in free credits, no card. That is roughly 33,000 characters —
+        about three ten-minute talks, entirely free.</p>
+        <pre>export SARVAM_API_KEY=...</pre>
+      </li>
+      <li>
+        <h3>Run the blind comparison</h3>
+        <p>Same Telugu sentences through every provider. The sentences are
+        chosen to stress retroflex consonants, vowel length, a question contour
+        and a mid-sentence English loanword — the four things adapted models
+        get wrong.</p>
+        <pre>python scripts/tts_shootout.py \
+    --providers sarvam elevenlabs azure edge_tts \
+    --text-file samples/where_is_time_for_yoga_te.json</pre>
+      </li>
+      <li>
+        <h3>Score it blind, with someone else's ears</h3>
+        <p>Output filenames carry no vendor name. Score retroflex, pitch,
+        rhythm and loanwords <em>separately</em> — a system can pass one and
+        fail another, and an averaged "which sounds better" hides exactly that.
+        Open <code>KEY.json</code> only afterwards.</p>
+      </li>
+      <li>
+        <h3>Then, and only then, test one minute of lip-sync</h3>
+        <p>Take the winning voice, dub sixty seconds, and put it through
+        sync.so or HeyGen. One minute costs about $3 and answers the question
+        that no amount of reading will.</p>
+      </li>
+    </ol>
+  </section>
+
+  <section>
+    <p class="eyebrow">Caveats</p>
+    <div class="col">
+      <h2>What this research cannot tell you</h2>
+      <ul>
+        <li><strong>I have not heard any of these systems.</strong> Every claim
+          above is from published benchmarks and vendor documentation. The
+          blind test exists because your ears and your reviewer's ears are the
+          only evidence that settles it.</li>
+        <li><strong>PSP is a young benchmark on a pilot set</strong> of three
+          languages, and it found no system Pareto-optimal across its six
+          dimensions. Treat the ranking as a strong prior, not a verdict.</li>
+        <li><strong>Vendor pricing moves.</strong> Sarvam's ₹30/10k is beta
+          pricing. Re-check before committing to volume.</li>
+        <li><strong>Google's Telugu tier needs confirming.</strong> Chirp 3 HD's
+          language list is expanding; te-IN may only exist on older tiers.
+          Verify in the console before budgeting.</li>
+        <li><strong>Cloning the speaker's own voice is a separate decision</strong>
+          with a consent problem attached, and no bearing on whether the Telugu
+          sounds native. A stock native voice beats a cloned non-native one.</li>
+      </ul>
+    </div>
+  </section>
+
+  <footer>
+    <span>telugu_dub · voice research</span>
+    <span>PSP benchmark arXiv:2604.25476</span>
+    <span>scripts/tts_shootout.py</span>
+    <span>prices as of Sept 2026</span>
+  </footer>
+
+</div>
